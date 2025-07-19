@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const commander_1 = require("commander");
+const chalk_1 = __importDefault(require("chalk"));
+const readline_1 = __importDefault(require("readline"));
+const hook_1 = require("./commands/hook");
+const util_1 = require("./commands/util");
+const type_1 = require("./commands/type");
+const global_1 = require("./commands/global");
+const page_1 = require("./commands/page");
+const config_1 = require("./commands/config");
+const help_1 = require("./commands/help");
+const service_1 = require("./commands/service");
+const context_1 = require("./commands/context");
+const redux_1 = require("./commands/redux");
+const deps_1 = require("./commands/deps");
+const generate_1 = require("./commands/generate");
+const program = new commander_1.Command();
+const rl = readline_1.default.createInterface({ input: process.stdin, output: process.stdout });
+(0, hook_1.handleHook)(program, rl);
+(0, util_1.handleUtil)(program, rl);
+(0, type_1.handleType)(program, rl);
+(0, global_1.handleGlobal)(program, rl);
+(0, page_1.handlePage)(program, rl);
+(0, config_1.handleConfig)(program, rl);
+(0, config_1.handleInit)(program, rl);
+(0, help_1.handleHelp)(program, rl);
+(0, service_1.handleService)(program, rl);
+(0, context_1.handleContext)(program, rl);
+(0, redux_1.handleRedux)(program, rl);
+(0, deps_1.handleDeps)(program, rl);
+(0, generate_1.handleGenerate)(program, rl);
+program.parseAsync(process.argv).catch((err) => {
+    console.error(chalk_1.default.red('Error:'), err);
+    rl.close();
+    process.exit(1);
+});

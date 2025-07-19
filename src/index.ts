@@ -9,6 +9,11 @@ import { handleGlobal } from './commands/global';
 import { handlePage } from './commands/page';
 import { handleConfig, handleInit } from './commands/config';
 import { handleHelp } from './commands/help';
+import { handleService } from './commands/service';
+import { handleContext } from './commands/context';
+import { handleRedux } from './commands/redux';
+import { handleDeps } from './commands/deps';
+import { handleGenerate } from './commands/generate';
 
 
 const program = new Command();
@@ -19,9 +24,15 @@ handleUtil(program, rl);
 handleType(program, rl);
 handleGlobal(program, rl);
 handlePage(program, rl);
+
 handleConfig(program, rl);
 handleInit(program, rl);
 handleHelp(program, rl);
+handleService(program, rl);
+handleContext(program, rl);
+handleRedux(program, rl);
+handleDeps(program, rl);
+handleGenerate(program, rl);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(chalk.red('Error:'), err);

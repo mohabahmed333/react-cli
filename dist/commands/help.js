@@ -1,0 +1,59 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.handleHelp = handleHelp;
+const chalk_1 = __importDefault(require("chalk"));
+function handleHelp(program, rl) {
+    program
+        .command('help')
+        .description('Show help')
+        .action(() => {
+        console.log(chalk_1.default.cyan.bold('\n📘 CLI Documentation'));
+        console.log('\nCommands:');
+        console.log('  hook <name>             Create a custom hook');
+        console.log('  util <name>             Create a utility function');
+        console.log('  type <name>             Create TypeScript types');
+        console.log('  service <name>          Create a service for API calls');
+        console.log('  global                  Create multiple global resources');
+        console.log('  page <name>             Create a page with components');
+        console.log('  context <name>          Create a React context');
+        console.log('  redux <name>            Create a Redux slice');
+        console.log('  deps                    Check dependency versions');
+        console.log('  generate guard <name>           Create an authentication guard for protected routes');
+        console.log('  generate layout <name>          Create a layout component with nested routing support');
+        console.log('  generate hoc <name>             Create a higher-order component');
+        console.log('  generate routes                 Generate a routes configuration file');
+        console.log('  generate service-worker         Create a service worker for PWA support');
+        console.log('  generate env                    Create environment configuration files');
+        console.log('  generate test-utils             Create test utilities for React Testing Library');
+        console.log('  generate error-boundary         Create a reusable error boundary component');
+        console.log('  init                    Initialize project config');
+        console.log('  config                  Show current config');
+        console.log('\nOptions:');
+        console.log('  --ts                      Override TypeScript setting');
+        console.log('  --interactive             Use interactive mode');
+        console.log('  --replace                 Replace file if it exists');
+        console.log('  --context <name>          Create a React context');
+        console.log('  --redux                   Include Redux slice');
+        console.log('  --sidebar                 Include sidebar (for layout generator)');
+        console.log('  --navbar                  Include navigation bar (for layout generator)');
+        console.log('\nExamples:');
+        console.log('  create-page hook useAuth --ts');
+        console.log('  create-page page Dashboard --css --test --interactive --context AuthContext --redux');
+        console.log('  create-page global --interactive');
+        console.log('  create-page service user --ts');
+        console.log('  create-page generate guard AuthGuard');
+        console.log('  create-page generate layout Main --sidebar --navbar');
+        console.log('  create-page generate hoc Auth');
+        console.log('  create-page generate routes');
+        console.log('  create-page generate service-worker');
+        console.log('  create-page generate env');
+        console.log('  create-page generate test-utils');
+        console.log('  create-page generate error-boundary');
+        console.log('\nTo use context or redux features, install the required dependencies:');
+        console.log('  npm install react-redux @reduxjs/toolkit');
+        rl.close();
+    });
+}

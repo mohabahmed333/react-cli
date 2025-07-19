@@ -11,6 +11,7 @@ export function handleType(program: Command, rl: readline.Interface) {
     .description('Create TypeScript types')
     .option('--ts', 'Override TypeScript setting')
     .option('-i, --interactive', 'Use interactive mode')
+    .option('--replace', 'Replace file if it exists')
     .action(async (name: string, options: any) => {
       const config = await setupConfiguration(rl);
       const useTS = options.ts ?? config.typescript;
@@ -24,10 +25,10 @@ export function handleType(program: Command, rl: readline.Interface) {
         : name;
       const content = `export interface ${typeName} {\n  // Add properties here\n}\n\nexport type ${typeName}Type = {\n  id: string;\n  name: string;\n};\n`;
       const filePath = `${config.baseDir}/types/${typeName}.types.ts`;
-      if (createFile(filePath, content)) {
+      if (createFile(filePath, content, options.replace)) {
         console.log(chalk.green(`✅ Created type: ${filePath}`));
       } else {
-        console.log(chalk.yellow(`⚠️ Type exists: ${filePath}`));
+        console.log(chalk.yellow(`⚠️ Type exists: ${filePath} (use --replace to overwrite)`));
       }
       rl.close();
     });

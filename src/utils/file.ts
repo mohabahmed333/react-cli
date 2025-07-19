@@ -7,10 +7,10 @@ export function createFolder(folderPath: string) {
   }
 }
 
-export function createFile(filePath: string, content = ''): boolean {
+export function createFile(filePath: string, content = '', replace = false): boolean {
   const dir = path.dirname(filePath);
   createFolder(dir);
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(filePath) || replace) {
     fs.writeFileSync(filePath, content);
     return true;
   }

@@ -11,6 +11,7 @@ export function handleUtil(program: Command, rl: readline.Interface) {
     .description('Create a utility function')
     .option('--ts', 'Override TypeScript setting')
     .option('-i, --interactive', 'Use interactive mode')
+    .option('--replace', 'Replace file if it exists')
     .action(async (name: string, options: any) => {
       const config = await setupConfiguration(rl);
       const useTS = options.ts ?? config.typescript;
@@ -22,10 +23,10 @@ export function handleUtil(program: Command, rl: readline.Interface) {
         ? `export const ${utilName} = (input: string): string => {\n  return input.toUpperCase();\n};\n`
         : `export const ${utilName} = (input) => {\n  return input.toUpperCase();\n};\n`;
       const filePath = `${config.baseDir}/utils/${utilName}.${ext}`;
-      if (createFile(filePath, content)) {
+      if (createFile(filePath, content, options.replace)) {
         console.log(chalk.green(`✅ Created util: ${filePath}`));
       } else {
-        console.log(chalk.yellow(`⚠️ Util exists: ${filePath}`));
+        console.log(chalk.yellow(`⚠️ Util exists: ${filePath} (use --replace to overwrite)`));
       }
       rl.close();
     });
