@@ -1,0 +1,17 @@
+{
+  "name": "react-cli",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

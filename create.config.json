@@ -1,0 +1,6 @@
+{
+  "baseDir": "app",
+  "projectType": "react",
+  "typescript": true,
+  "localization": false
+}
