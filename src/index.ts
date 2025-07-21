@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { handleA11yScan } from './commands/a11yScan';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import readline from 'readline';
@@ -14,10 +15,13 @@ import { handleContext } from './commands/context';
 import { handleRedux } from './commands/redux';
 import { handleDeps } from './commands/deps';
 import { handleGenerate } from './commands/generate';
+import { handleBundleCheck } from './commands/bundleCheck';
 
 
 const program = new Command();
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+handleA11yScan(program, rl);
 
 handleHook(program, rl);
 handleUtil(program, rl);
@@ -33,6 +37,7 @@ handleContext(program, rl);
 handleRedux(program, rl);
 handleDeps(program, rl);
 handleGenerate(program, rl);
+handleBundleCheck(program, rl);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(chalk.red('Error:'), err);

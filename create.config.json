@@ -1,6 +1,8 @@
 {
   "baseDir": "app",
   "projectType": "react",
+  "buildTool": "vite",
   "typescript": true,
-  "localization": false
+  "localization": false,
+  "port": 5173
 }

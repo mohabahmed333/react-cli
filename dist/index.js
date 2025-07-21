@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const a11yScan_1 = require("./commands/a11yScan");
 const commander_1 = require("commander");
 const chalk_1 = __importDefault(require("chalk"));
 const readline_1 = __importDefault(require("readline"));
@@ -19,8 +20,10 @@ const context_1 = require("./commands/context");
 const redux_1 = require("./commands/redux");
 const deps_1 = require("./commands/deps");
 const generate_1 = require("./commands/generate");
+const bundleCheck_1 = require("./commands/bundleCheck");
 const program = new commander_1.Command();
 const rl = readline_1.default.createInterface({ input: process.stdin, output: process.stdout });
+(0, a11yScan_1.handleA11yScan)(program, rl);
 (0, hook_1.handleHook)(program, rl);
 (0, util_1.handleUtil)(program, rl);
 (0, type_1.handleType)(program, rl);
@@ -34,6 +37,7 @@ const rl = readline_1.default.createInterface({ input: process.stdin, output: pr
 (0, redux_1.handleRedux)(program, rl);
 (0, deps_1.handleDeps)(program, rl);
 (0, generate_1.handleGenerate)(program, rl);
+(0, bundleCheck_1.handleBundleCheck)(program, rl);
 program.parseAsync(process.argv).catch((err) => {
     console.error(chalk_1.default.red('Error:'), err);
     rl.close();

@@ -21,6 +21,8 @@ function handleHelp(program, rl) {
         console.log('  context <name>          Create a React context');
         console.log('  redux <name>            Create a Redux slice');
         console.log('  deps                    Check dependency versions');
+        console.log('  bundle-check            Analyze application bundle size and dependencies');
+        console.log('  a11y-scan               Check accessibility compliance');
         console.log('  generate guard <name>           Create an authentication guard for protected routes');
         console.log('  generate layout <name>          Create a layout component with nested routing support');
         console.log('  generate hoc <name>             Create a higher-order component');
@@ -39,6 +41,11 @@ function handleHelp(program, rl) {
         console.log('  --redux                   Include Redux slice');
         console.log('  --sidebar                 Include sidebar (for layout generator)');
         console.log('  --navbar                  Include navigation bar (for layout generator)');
+        console.log('  --fix                      Attempt to fix common accessibility issues (a11y-scan)');
+        console.log('  --report                   Generate detailed HTML report (a11y-scan)');
+        console.log('  --component <path>         Scan specific component file (a11y-scan)');
+        console.log('  --url <url>                Scan specific URL (a11y-scan)');
+        console.log('  --level <level>            WCAG level: A, AA, AAA (a11y-scan)');
         console.log('\nExamples:');
         console.log('  create-page hook useAuth --ts');
         console.log('  create-page page Dashboard --css --test --interactive --context AuthContext --redux');
@@ -46,6 +53,7 @@ function handleHelp(program, rl) {
         console.log('  create-page service user --ts');
         console.log('  create-page generate guard AuthGuard');
         console.log('  create-page generate layout Main --sidebar --navbar');
+        console.log('  create-page a11y-scan --url http://localhost:3000 --report');
         console.log('  create-page generate hoc Auth');
         console.log('  create-page generate routes');
         console.log('  create-page generate service-worker');
