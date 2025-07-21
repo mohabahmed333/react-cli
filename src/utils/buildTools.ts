@@ -49,10 +49,22 @@ export function getStartCommand(config: any): string {
   return toolConfig.startCommand;
 }
 
+export function getIgnoredPaths(): string[] {
+  return [
+    'node_modules/**/*',
+    'dist/**/*',
+    'build/**/*',
+    '.next/**/*',
+    'coverage/**/*',
+    '.git/**/*'
+  ];
+}
+
 // For CommonJS compatibility
 module.exports = {
   buildTools,
   getBuildToolConfig,
   getDevServerPort,
-  getStartCommand
+  getStartCommand,
+  getIgnoredPaths
 };

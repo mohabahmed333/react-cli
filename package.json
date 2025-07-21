@@ -3,23 +3,30 @@
   "version": "1.0.0",
   "description": "A CLI tool for React/Next.js project scaffolding with Vite support",
   "main": "dist/index.js",
+  "module": "NodeNext",
+  "exports": {
+    "require": "./dist/index.js",
+    "import": "./dist/esm/index.js"
+  },
   "type": "commonjs",
   "bin": {
     "create-page": "./dist/index.js"
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build": "npm run build:cjs && npm run build:esm",
     "start": "node dist/index.js",
     "watch": "tsc -w"
   },
   "dependencies": {
-    "chalk": "^5.4.1",
-    "commander": "^14.0.0",
-    "axios": "^1.6.0",
-    "jsdom": "^22.1.0",
-    "color": "^4.2.3",
     "axe-core": "^4.7.2",
+    "axios": "^1.6.0",
+    "chalk": "^5.4.1",
+    "color": "^4.2.3",
+    "commander": "^14.0.0",
+    "jsdom": "^22.1.0",
     "source-map-explorer": "^2.5.3"
   },
   "devDependencies": {

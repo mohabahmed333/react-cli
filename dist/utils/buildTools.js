@@ -42,3 +42,10 @@ function getStartCommand(config) {
     const toolConfig = getBuildToolConfig(config);
     return toolConfig.startCommand;
 }
+// For CommonJS compatibility
+module.exports = {
+    buildTools: exports.buildTools,
+    getBuildToolConfig,
+    getDevServerPort,
+    getStartCommand
+};
