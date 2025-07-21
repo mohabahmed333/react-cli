@@ -16,12 +16,14 @@ import { handleRedux } from './commands/redux';
 import { handleDeps } from './commands/deps';
 import { handleGenerate } from './commands/generate';
 import { handleBundleCheck } from './commands/bundleCheck';
+import { handleLibraries } from './commands/libraries';
 
 
 const program = new Command();
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
 handleA11yScan(program, rl);
+handleLibraries(program, rl);
 
 handleHook(program, rl);
 handleUtil(program, rl);

@@ -23,6 +23,7 @@ function handleHelp(program, rl) {
         console.log('  deps                    Check dependency versions');
         console.log('  bundle-check            Analyze application bundle size and dependencies');
         console.log('  a11y-scan               Check accessibility compliance');
+        console.log('  libraries               Install and setup project libraries');
         console.log('  generate guard <name>           Create an authentication guard for protected routes');
         console.log('  generate layout <name>          Create a layout component with nested routing support');
         console.log('  generate hoc <name>             Create a higher-order component');
@@ -60,6 +61,7 @@ function handleHelp(program, rl) {
         console.log('  create-page generate env');
         console.log('  create-page generate test-utils');
         console.log('  create-page generate error-boundary');
+        console.log('  create-page libraries                  # Install and setup libraries like Redux, React Router');
         console.log('\nTo use context or redux features, install the required dependencies:');
         console.log('  npm install react-redux @reduxjs/toolkit');
         rl.close();

@@ -1,0 +1,19 @@
+# Development files
+node_modules/
+.git/
+.github/
+.vscode/
+dist/
+
+# Source files (since we're publishing the compiled version)
+src/**/*.ts
+!src/**/templates/**/*
+
+# Config files
+tsconfig.json
+.gitignore
+.npmignore
+
+# Misc
+*.log
+*.tgz

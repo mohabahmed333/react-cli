@@ -21,15 +21,23 @@
     "watch": "tsc -w"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.8.2",
     "axe-core": "^4.7.2",
     "axios": "^1.6.0",
     "chalk": "^5.4.1",
     "color": "^4.2.3",
     "commander": "^14.0.0",
+    "execa": "^9.6.0",
+    "fs-extra": "^11.3.0",
+    "inquirer": "^12.8.2",
     "jsdom": "^22.1.0",
+    "react-redux": "^9.2.0",
+    "redux": "^5.0.1",
     "source-map-explorer": "^2.5.3"
   },
   "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.8",
     "@types/node": "^24.0.15",
     "typescript": "^5.0.0",
     "vite": "^4.4.7"

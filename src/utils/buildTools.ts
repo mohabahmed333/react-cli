@@ -56,7 +56,8 @@ export function getIgnoredPaths(): string[] {
     'build/**/*',
     '.next/**/*',
     'coverage/**/*',
-    '.git/**/*'
+    '.git/**/*',
+    'src/**/templates/**/*',
   ];
 }
 

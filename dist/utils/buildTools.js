@@ -4,6 +4,7 @@ exports.buildTools = void 0;
 exports.getBuildToolConfig = getBuildToolConfig;
 exports.getDevServerPort = getDevServerPort;
 exports.getStartCommand = getStartCommand;
+exports.getIgnoredPaths = getIgnoredPaths;
 exports.buildTools = {
     vite: {
         id: 'vite',
@@ -42,10 +43,22 @@ function getStartCommand(config) {
     const toolConfig = getBuildToolConfig(config);
     return toolConfig.startCommand;
 }
+function getIgnoredPaths() {
+    return [
+        'node_modules/**/*',
+        'dist/**/*',
+        'build/**/*',
+        '.next/**/*',
+        'coverage/**/*',
+        '.git/**/*',
+        'src/**/templates/**/*',
+    ];
+}
 // For CommonJS compatibility
 module.exports = {
     buildTools: exports.buildTools,
     getBuildToolConfig,
     getDevServerPort,
-    getStartCommand
+    getStartCommand,
+    getIgnoredPaths
 };
