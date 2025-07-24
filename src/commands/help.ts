@@ -14,6 +14,7 @@ export function handleHelp(program: Command, rl: readline.Interface) {
       console.log('  g util <name>            Generate a utility function');
       console.log('  g type <name>            Generate TypeScript types');
       console.log('  g page <name>            Generate a page with components');
+      console.log('  g operation <name>        Generate TypeScript CRUD operations for a resource');
       console.log('  service <name>          Create a service for API calls');
       console.log('  global                  Create multiple global resources');
       console.log('  context <name>          Create a React context');

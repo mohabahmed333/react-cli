@@ -11,6 +11,7 @@ import { handleDeps } from './commands/deps';
 import { handleGenerate } from './commands/generate';
 import { handleBundleCheck } from './commands/bundleCheck';
 import { handleLibraries } from './commands/libraries';
+import { registerOperation } from './commands/operations/Operation';
 
 
 const program = new Command();
@@ -20,17 +21,14 @@ handleA11yScan(program, rl);
 handleLibraries(program, rl);
 
 handleGlobal(program, rl);
-
 handleConfig(program, rl);
 handleInit(program, rl);
 handleHelp(program, rl);
-// handleService(program, rl);
-// handleContext(program, rl);
-// handleRedux(program, rl);
+
 handleDeps(program, rl);
 handleGenerate(program, rl);
 handleBundleCheck(program, rl);
-
+registerOperation(program, rl);
 program.parseAsync(process.argv).catch((err) => {
   console.error(chalk.red('Error:'), err);
   rl.close();
