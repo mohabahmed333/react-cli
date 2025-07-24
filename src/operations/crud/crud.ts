@@ -1,10 +1,10 @@
 import path from 'path';
 import fs from 'fs-extra';
 import { updateStoreForRtkQueryTS } from './generateRtkQuery/RtkStoreUpdater';
-import { generateRtkQueryCrudTS } from './generateRtkQuery/generateRtkQuery';
-import { generateAxiosCrudTS } from './generateAxios';
+ import { generateAxiosCrudTS } from './generateAxios';
 import { generateReactQueryCrudTS } from './generateReactQuery';
 import { setupConfiguration } from '../../utils/config';
+import { generateRtkQueryCrudTS } from './generateRtkQuery/generateRtkQuery';
 // import your template generators here:
 // import { generateAxiosCrudTS, generateReactQueryCrudTS, generateRtkQueryCrudTS } from './templates';
 

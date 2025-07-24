@@ -1,66 +1,49 @@
-
-export function generateRtkQueryCrudTS({ resource, Resource }: {
-  resource: string;
+interface RtkQueryTemplateParams {
   Resource: string;
-}): string {
-    return `// src/services/${resource}Api.ts
-  import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-  
-  export interface ${Resource} {
-    id: string;
-    // Add your ${resource} properties here
-  }
-  
-  export interface ApiError {
-    status: number;
-    data: { message?: string };
-  }
-  
-  export const ${resource}Api = createApi({
-    reducerPath: '${resource}Api',
-    baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
-    tagTypes: ['${Resource}'],
-    endpoints: (builder) => ({
-      get${Resource}s: builder.query<${Resource}[], void>({
-        query: () => '/${resource}',
-        providesTags: ['${Resource}']
+  importPath: string;
+  errorHandler?: string;
+}
+
+export function generateRtkQueryCrudTS({ Resource, importPath }: RtkQueryTemplateParams) {
+  const keyConst = `${Resource.toUpperCase()}_QUERY_KEY`;
+  return `import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { ${keyConst} } from '${importPath}';
+
+export const api = createApi({
+  reducerPath: '${Resource.toLowerCase()}Api',
+  baseQuery: fetchBaseQuery({ baseUrl: '/api/${Resource.toLowerCase()}' }),
+  tagTypes: [${keyConst}],
+  endpoints: (builder) => ({
+    get${Resource}s: builder.query<any, void>({
+      query: () => '',
+      providesTags: [${keyConst}],
+    }),
+    create${Resource}: builder.mutation<any, any>({
+      query: (data) => ({
+        url: '',
+        method: 'POST',
+        body: data,
       }),
-      get${Resource}: builder.query<${Resource}, string>({
-        query: (id) => \`/${resource}/\${id}\`,
-        providesTags: (result, error, id) => [{ type: '${Resource}' as const, id }]
+      invalidatesTags: [${keyConst}],
+    }),
+    update${Resource}: builder.mutation<any, any>({
+      query: (data) => ({
+        url: '',
+        method: 'PUT',
+        body: data,
       }),
-      create${Resource}: builder.mutation<${Resource}, Omit<${Resource}, 'id'>>({
-        query: (body) => ({
-          url: '/${resource}',
-          method: 'POST',
-          body
-        }),
-        invalidatesTags: ['${Resource}']
+      invalidatesTags: [${keyConst}],
+    }),
+    delete${Resource}: builder.mutation<any, string>({
+      query: (id) => ({
+        url: \`/$\{id\}\`,
+        method: 'DELETE',
       }),
-      update${Resource}: builder.mutation<${Resource}, Partial<${Resource} & { id: string }>>({
-        query: ({ id, ...body }) => ({
-          url: \`/${resource}/\${id}\`,
-          method: 'PUT',
-          body
-        }),
-        invalidatesTags: (result, error, { id }) => [{ type: '${Resource}' as const, id }]
-      }),
-      delete${Resource}: builder.mutation<void, string>({
-        query: (id) => ({
-          url: \`/${resource}/\${id}\`,
-          method: 'DELETE'
-        }),
-        invalidatesTags: (result, error, id) => [{ type: '${Resource}' as const, id }]
-      })
-    })
-  });
-  
-  export const {
-    useGet${Resource}sQuery,
-    useGet${Resource}Query,
-    useCreate${Resource}Mutation,
-    useUpdate${Resource}Mutation,
-    useDelete${Resource}Mutation
-  } = ${resource}Api;
-  `;
-  }
+      invalidatesTags: [${keyConst}],
+    }),
+  })
+});
+`;
+}
+ 
+ 

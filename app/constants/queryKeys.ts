@@ -19,3 +19,27 @@ export const DD_VALIDATION_KEY = 'DD-validation';
 
 export const AMR_QUERY_KEY = 'amr';
 export const AMR_VALIDATION_KEY = 'amr-validation';
+
+export const SERVICE_QUERY_KEY = 'service';
+export const SERVICE_VALIDATION_KEY = 'service-validation';
+
+export const YOUSSEF_QUERY_KEY = 'youssef';
+export const YOUSSEF_VALIDATION_KEY = 'youssef-validation';
+
+export const II_QUERY_KEY = 'II';
+export const II_VALIDATION_KEY = 'II-validation';
+
+export const PP_QUERY_KEY = 'PP';
+export const PP_VALIDATION_KEY = 'PP-validation';
+
+export const 111111111_QUERY_KEY = '111111111';
+export const 111111111_VALIDATION_KEY = '111111111-validation';
+
+export const LL_QUERY_KEY = 'll';
+export const LL_VALIDATION_KEY = 'll-validation';
+
+export const MANSOUR_QUERY_KEY = 'mansour';
+export const MANSOUR_VALIDATION_KEY = 'mansour-validation';
+
+export const هسمشة_QUERY_KEY = 'هسمشة';
+export const هسمشة_VALIDATION_KEY = 'هسمشة-validation';
