@@ -1,13 +1,12 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import readline from 'readline';
-import { setupConfiguration } from '../utils/config';
-import { createFile, createFolder } from '../utils/file';
+import { setupConfiguration } from '../../utils/config';
+import { createFile, createFolder } from '../../utils/file';
 
-export function handleRedux(program: Command, rl: readline.Interface) {
-  program
+export function registerGenerateRedux(generate: Command, rl: any) {
+  generate
     .command('redux <name>')
-    .description('Create a Redux slice (requires @reduxjs/toolkit)')
+    .description('Generate a Redux slice (requires @reduxjs/toolkit)')
     .option('--ts', 'Override TypeScript setting')
     .option('--replace', 'Replace file if it exists')
     .action(async (name: string, options: any) => {
@@ -27,4 +26,4 @@ export function handleRedux(program: Command, rl: readline.Interface) {
       }
       rl.close();
     });
-}
+} 

@@ -1,14 +1,13 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import readline from 'readline';
-import { setupConfiguration } from '../utils/config';
-import { askQuestion } from '../utils/prompt';
-import { createFile } from '../utils/file';
+import { setupConfiguration } from '../../utils/config';
+import { askQuestion } from '../../utils/prompt';
+import { createFile } from '../../utils/file';
 
-export function handleHook(program: Command, rl: readline.Interface) {
-  program
+export function registerGenerateHook(generate: Command, rl: any) {
+  generate
     .command('hook <name>')
-    .description('Create a custom hook')
+    .description('Generate a custom React hook')
     .option('--ts', 'Override TypeScript setting')
     .option('-i, --interactive', 'Use interactive mode')
     .option('--replace', 'Replace file if it exists')
@@ -30,4 +29,4 @@ export function handleHook(program: Command, rl: readline.Interface) {
       }
       rl.close();
     });
-}
+} 

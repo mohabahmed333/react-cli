@@ -9,13 +9,15 @@ export function handleHelp(program: Command, rl: readline.Interface) {
     .action(() => {
       console.log(chalk.cyan.bold('\n📘 CLI Documentation'));
       console.log('\nCommands:');
-      console.log('  hook <name>             Create a custom hook');
-      console.log('  util <name>             Create a utility function');
-      console.log('  type <name>             Create TypeScript types');
+      console.log('  g component <name>       Generate a functional component (global or per-page)');
+      console.log('  g hook <name>            Generate a custom React hook');
+      console.log('  g util <name>            Generate a utility function');
+      console.log('  g type <name>            Generate TypeScript types');
+      console.log('  g page <name>            Generate a page with components');
       console.log('  service <name>          Create a service for API calls');
       console.log('  global                  Create multiple global resources');
-      console.log('  page <name>             Create a page with components');
       console.log('  context <name>          Create a React context');
+      console.log('  component <name>        Create a functional component in a page components directory');
       console.log('  redux <name>            Create a Redux slice');
       console.log('  deps                    Check dependency versions');
       console.log('  bundle-check            Analyze application bundle size and dependencies');

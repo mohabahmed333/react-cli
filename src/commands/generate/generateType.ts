@@ -1,14 +1,13 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import readline from 'readline';
-import { setupConfiguration } from '../utils/config';
-import { askQuestion } from '../utils/prompt';
-import { createFile } from '../utils/file';
+import { setupConfiguration } from '../../utils/config';
+import { askQuestion } from '../../utils/prompt';
+import { createFile } from '../../utils/file';
 
-export function handleType(program: Command, rl: readline.Interface) {
-  program
+export function registerGenerateType(generate: Command, rl: any) {
+  generate
     .command('type <name>')
-    .description('Create TypeScript types')
+    .description('Generate TypeScript types')
     .option('--ts', 'Override TypeScript setting')
     .option('-i, --interactive', 'Use interactive mode')
     .option('--replace', 'Replace file if it exists')
@@ -32,4 +31,4 @@ export function handleType(program: Command, rl: readline.Interface) {
       }
       rl.close();
     });
-}
+} 

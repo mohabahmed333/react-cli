@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { createFile } from '../utils/file';
+import { createFile } from '../../utils/file';
 
 export function registerGenerateEnv(generate: Command, rl: any) {
   generate

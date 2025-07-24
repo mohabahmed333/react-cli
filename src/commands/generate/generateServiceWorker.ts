@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { setupConfiguration } from '../utils/config';
-import { createFile } from '../utils/file';
+import { setupConfiguration } from '../../utils/config';
+import { createFile } from '../../utils/file';
 
 export function registerGenerateServiceWorker(generate: Command, rl: any) {
   generate

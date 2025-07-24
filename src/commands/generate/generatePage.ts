@@ -1,9 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import readline from 'readline';
-import { setupConfiguration } from '../utils/config';
-import { askQuestion } from '../utils/prompt';
-import { createFile, createFolder } from '../utils/file';
+import { setupConfiguration } from '../../utils/config';
+import { askQuestion } from '../../utils/prompt';
+import { createFile, createFolder } from '../../utils/file';
 
 function createPage(name: string, options: any, config: any) {
   const ext = config.typescript ? 'tsx' : 'jsx';
@@ -56,13 +55,13 @@ function createPage(name: string, options: any, config: any) {
       : `export default function Layout({ children }) {\n  return (\n    <div>\n      <main>{children}</main>\n    </div>\n  );\n}\n`;
     createFile(`${basePath}/layout.${ext}`, layoutContent);
   }
-  console.log(chalk.green.bold(`\n🎉 Created ${name} page at ${basePath}`));
+  console.log(chalk.green.bold(`\n 389 Created ${name} page at ${basePath}`));
 }
 
-export function handlePage(program: Command, rl: readline.Interface) {
-  program
+export function registerGeneratePage(generate: Command, rl: any) {
+  generate
     .command('page <name>')
-    .description('Create a page with components')
+    .description('Generate a page with components')
     .option('--ts', 'Override TypeScript setting')
     .option('--next', 'Override project type as Next.js')
     .option('--intl', 'Override internationalization setting')
@@ -101,4 +100,4 @@ export function handlePage(program: Command, rl: readline.Interface) {
       }
       rl.close();
     });
-}
+} 

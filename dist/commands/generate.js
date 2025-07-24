@@ -1,15 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleGenerate = handleGenerate;
-// Register all generate subcommands from their own files
-const generateGuard_1 = require("./generateGuard");
-const generateLayout_1 = require("./generateLayout");
-const generateHoc_1 = require("./generateHoc");
-const generateRoutes_1 = require("./generateRoutes");
-const generateServiceWorker_1 = require("./generateServiceWorker");
-const generateEnv_1 = require("./generateEnv");
-const generateTestUtils_1 = require("./generateTestUtils");
-const generateErrorBoundary_1 = require("./generateErrorBoundary");
+const generateGuard_1 = require("./generate/generateGuard");
+const generateLayout_1 = require("./generate/generateLayout");
+const generateHoc_1 = require("./generate/generateHoc");
+const generateRoutes_1 = require("./generate/generateRoutes");
+const generateServiceWorker_1 = require("./generate/generateServiceWorker");
+const generateEnv_1 = require("./generate/generateEnv");
+const generateTestUtils_1 = require("./generate/generateTestUtils");
+const generateErrorBoundary_1 = require("./generate/generateErrorBoundary");
+const generateComponent_1 = require("./generate/generateComponent");
+const generateHook_1 = require("./generate/generateHook");
+const generateUtil_1 = require("./generate/generateUtil");
+const generateType_1 = require("./generate/generateType");
+const generatePage_1 = require("./generate/generatePage");
+const generateContext_1 = require("./generate/generateContext");
+const generateRedux_1 = require("./generate/generateRedux");
+const generateService_1 = require("./generate/generateService");
 function handleGenerate(program, rl) {
     const generate = program.command('g').description('Generators for common React patterns');
     (0, generateGuard_1.registerGenerateGuard)(generate, rl);
@@ -20,4 +27,12 @@ function handleGenerate(program, rl) {
     (0, generateEnv_1.registerGenerateEnv)(generate, rl);
     (0, generateTestUtils_1.registerGenerateTestUtils)(generate, rl);
     (0, generateErrorBoundary_1.registerGenerateErrorBoundary)(generate, rl);
+    (0, generateComponent_1.registerGenerateComponent)(generate, rl);
+    (0, generateHook_1.registerGenerateHook)(generate, rl);
+    (0, generateUtil_1.registerGenerateUtil)(generate, rl);
+    (0, generateType_1.registerGenerateType)(generate, rl);
+    (0, generatePage_1.registerGeneratePage)(generate, rl);
+    (0, generateContext_1.registerGenerateContext)(generate, rl);
+    (0, generateRedux_1.registerGenerateRedux)(generate, rl);
+    (0, generateService_1.registerGenerateService)(generate, rl);
 }
