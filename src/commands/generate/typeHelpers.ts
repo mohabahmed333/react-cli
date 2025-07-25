@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs';
 import { askQuestion } from '../../utils/prompt';
-import { setupConfiguration } from '../../utils/config';
+import { CLIConfig, setupConfiguration } from '../../utils/config';
 import { createFile } from '../../utils/file';
 import { 
   shouldUseAI, 
@@ -11,6 +11,8 @@ import {
   confirmAIOutput 
 } from '../../utils/generateAIHelper';
 import readline from 'readline';
+import { GenerateOptions } from '../../utils/generateAIHelper';
+import { Interface } from 'readline';
 
 export function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -81,7 +83,7 @@ async function getTypeFeatures(rl: readline.Interface, kind: 'enum' | 'interface
   return features.join(', ');
 }
 
-export async function handleNamedType(kind: 'enum' | 'interface' | 'class', name: string | undefined, folder: string | undefined, options: any, rl: any) {
+export async function handleNamedType(kind: 'enum' | 'interface' | 'class', name: string | undefined, folder: string | undefined, options: GenerateOptions, rl: Interface) {
   try {
     console.log(chalk.cyan(`\n📝 ${capitalize(kind)} Generator`));
     console.log(chalk.dim('======================'));
@@ -191,24 +193,23 @@ export async function handleNamedType(kind: 'enum' | 'interface' | 'class', name
   }
 }
 
-export async function createNamedTypeInPath(kind: 'enum' | 'interface' | 'class', typeName: string, fullPath: string, options: any = {}) {
+export async function createNamedTypeInPath(kind: 'enum' | 'interface' | 'class', typeName: string, fullPath: string, options: GenerateOptions & { config: CLIConfig }) {
   try {
     if (!fs.existsSync(fullPath)) {
       fs.mkdirSync(fullPath, { recursive: true });
       console.log(chalk.green(`📁 Created directory: ${fullPath}`));
     }
 
-    let filePath = path.join(fullPath, `${typeName}.${kind}.ts`);
+    let filePath = path.join(fullPath, `${typeName}.${kind}.ts`);   
     let content = '';
 
     if (options.useAI && options.config) {
       const aiContent = await generateTypeWithAI(typeName, options.config, {
-        kind,
         features: options.aiFeatures
       });
 
       if (aiContent && (!fs.existsSync(filePath) || options.replace)) {
-        if (await confirmAIOutput(options.rl, aiContent)) {
+        if (options.rl && await confirmAIOutput(options.rl, aiContent)) {
           content = aiContent;
         }
       }
@@ -229,18 +230,19 @@ export async function createNamedTypeInPath(kind: 'enum' | 'interface' | 'class'
     } else {
       console.log(chalk.yellow(`⚠️ ${capitalize(kind)} exists: ${filePath} (use --replace to overwrite)`));
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(chalk.red(`❌ Error creating ${kind}:`));
-    console.error(chalk.red(error.message));
-    if (error.code === 'ENOENT') {
+    console.error(chalk.red(errorMessage));
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-    } else if (error.code === 'EACCES') {
+    } else if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
       console.log(chalk.yellow('💡 You might need permission to write to this directory'));
     }
   }
 }
 
-export async function handleTypeLegacy(name: string | undefined, folder: string | undefined, options: any, rl: any) {
+export async function handleTypeLegacy(name: string | undefined, folder: string | undefined, options: GenerateOptions, rl: Interface) {
   try {
     console.log(chalk.cyan('\n📝 Type Generator'));
     console.log(chalk.dim('======================'));
@@ -349,7 +351,7 @@ export async function handleTypeLegacy(name: string | undefined, folder: string 
   }
 }
 
-export async function createTypeLegacyInPath(typeName: string, fullPath: string, options: any = {}) {
+export async function createTypeLegacyInPath(typeName: string, fullPath: string, options: GenerateOptions & { config: CLIConfig }) {
   try {
     if (!fs.existsSync(fullPath)) {
       fs.mkdirSync(fullPath, { recursive: true });
@@ -365,7 +367,7 @@ export async function createTypeLegacyInPath(typeName: string, fullPath: string,
       });
 
       if (aiContent && (!fs.existsSync(typeFilePath) || options.replace)) {
-        if (await confirmAIOutput(options.rl, aiContent)) {
+        if (options.rl && options.config && await confirmAIOutput(options.rl, aiContent)) {
           content = aiContent;
         }
       }
@@ -380,12 +382,12 @@ export async function createTypeLegacyInPath(typeName: string, fullPath: string,
     } else {
       console.log(chalk.yellow(`⚠️ Type exists: ${typeFilePath} (use --replace to overwrite)`));
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log(chalk.red('❌ Error creating type:'));
-    console.error(chalk.red(error.message));
-    if (error.code === 'ENOENT') {
+    console.error(chalk.red(error instanceof Error ? error.message : 'Unknown error'));
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-    } else if (error.code === 'EACCES') {
+    } else if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
       console.log(chalk.yellow('💡 You might need permission to write to this directory'));
     }
   }

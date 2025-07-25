@@ -11,15 +11,15 @@ import {
   confirmAIOutput 
 } from '../../utils/generateAIHelper';
 import fs from 'fs';
-
-export function registerGenerateTestUtils(generate: Command, rl: any) {
+import { Interface as ReadlineInterface } from 'readline';
+export function registerGenerateTestUtils(generate: Command, rl: ReadlineInterface) {
   generate
     .command('test-utils')
     .description('Create test utilities for React Testing Library')
     .option('--replace', 'Replace file if it exists')
     .option('-i, --interactive', 'Use interactive mode')
     .option('--ai', 'Use AI to generate the test utilities code')
-    .action(async (options: any) => {
+    .action(async (options) => {
       try {
         console.log(chalk.cyan('\n🧪 Test Utilities Generator'));
         console.log(chalk.dim('======================'));

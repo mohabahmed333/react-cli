@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import { generateWithGemini } from '../services/gemini-service';
-import { setupConfiguration } from '../utils/config';
+import { CLIConfig, setupConfiguration } from '../utils/config';
 import { createFile } from '../utils/file';
 import readline from 'readline';
 import dotenv from 'dotenv';
@@ -30,7 +30,7 @@ function createOrUpdateEnvFile() {
   dotenv.config({ override: true });
 }
 
-function validateAIConfig(config: any) {
+function validateAIConfig(config: CLIConfig) {
   if (!config.aiEnabled) {
     console.log(chalk.yellow('AI features are not enabled. Run "yarn re enable-ai" to enable them.'));
     return false;

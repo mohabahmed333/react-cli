@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { askQuestion } from './prompt';
 import readline from 'readline';
+import { CLIConfig } from './config';
 
 interface DocOptions {
   ai: boolean;
@@ -14,7 +15,7 @@ interface DocOptions {
   output?: string;
 }
 
-export async function promptForDocOptions(rl: readline.Interface, config: any): Promise<DocOptions> {
+export async function promptForDocOptions(rl: readline.Interface, config: CLIConfig): Promise<DocOptions> {
   console.log(chalk.cyan('\n📝 Interactive Documentation Setup'));
   
   // Ask for AI usage

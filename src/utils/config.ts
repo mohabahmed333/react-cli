@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import { askQuestion } from './prompt';
 import readline from 'readline';
 import { buildTools, getBuildToolConfig } from './buildTools';
+import { HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 export interface DocsConfig {
   outputDir?: string;
@@ -25,8 +26,8 @@ export interface CLIConfig {
   aiProvider?: 'gemini';
   aiModel?: string;
   aiSafetySettings?: Array<{
-    category: string;
-    threshold: string;
+    category: HarmCategory;
+    threshold: HarmBlockThreshold;
   }>;
 }
 
@@ -41,8 +42,8 @@ const defaultConfig: CLIConfig = {
   aiProvider: 'gemini',
   aiModel: 'gemini-1.5-flash-latest',
   aiSafetySettings: [
-    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' }
+    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE }
   ]
 };
 

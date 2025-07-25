@@ -7,6 +7,8 @@ import { setupConfiguration } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
 import { createFile } from '../../utils/file';
 import { generateWithGemini } from '../../services/gemini-service';
+import { Interface as ReadlineInterface } from 'readline';
+import { GenerateOptions } from '../../utils/generateAIHelper';
 
 function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -25,16 +27,16 @@ function findFoldersByName(baseDir: string, folderName: string): string[] {
   return results;
 }
 
-export function registerGenerateHook(generate: Command, rl: any) {
+export function registerGenerateHook(generate: Command, rl: ReadlineInterface) {
   generate
     .command('hook [name] [folder]')
     .description('Generate a custom React hook (optionally in a specific folder under app/)')
     .option('--ts', 'Override TypeScript setting')
     .option('-i, --interactive', 'Use interactive mode for hook and folder selection')
     .option('--replace', 'Replace file if it exists')
-    .action(async (name: string | undefined, folder: string | undefined, options: any) => {
+    .action(async (name: string | undefined, folder: string | undefined, options: GenerateOptions) => {
       const config = await setupConfiguration(rl);
-      const useTS = options.ts ?? config.typescript;
+      const useTS = options.useTS ?? config.typescript;
       let hookName = name;
       let targetDir: string | undefined = undefined;
       if (options.interactive) {
@@ -173,12 +175,13 @@ async function createHookInPath(hookName: string, fullPath: string, useTS: boole
 
     fs.writeFileSync(hookFilePath, content);
     console.log(chalk.green(`✅ Created hook: ${hookFilePath}`));
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(chalk.red(`❌ Error creating hook:`));
-    console.error(chalk.red(error.message));
-    if (error.code === 'ENOENT') {
+    console.error(chalk.red(errorMessage));
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-    } else if (error.code === 'EACCES') {
+    } else if (error instanceof Error && 'code' in error && error .code === 'EACCES') {
       console.log(chalk.yellow('💡 You might need permission to write to this directory'));
     }
   }

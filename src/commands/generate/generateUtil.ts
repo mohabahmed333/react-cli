@@ -5,6 +5,8 @@ import fs from 'fs';
 import { setupConfiguration } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
 import { createFile } from '../../utils/file';
+import { Interface as ReadlineInterface } from 'readline';
+import { GenerateOptions } from '../../utils/generateAIHelper';
 
 function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -23,16 +25,16 @@ function findFoldersByName(baseDir: string, folderName: string): string[] {
   return results;
 }
 
-export function registerGenerateUtil(generate: Command, rl: any) {
+export function registerGenerateUtil(generate: Command, rl: ReadlineInterface) {
   generate
     .command('util [name] [folder]')
     .description('Generate a utility function (optionally in a specific folder under app/)')
     .option('--ts', 'Override TypeScript setting')
     .option('-i, --interactive', 'Use interactive mode for util and folder selection')
     .option('--replace', 'Replace file if it exists')
-    .action(async (name: string | undefined, folder: string | undefined, options: any) => {
+    .action(async (name: string | undefined, folder: string | undefined, options: GenerateOptions) => {
       const config = await setupConfiguration(rl);
-      const useTS = options.ts ?? config.typescript;
+      const useTS = options.useTS ?? config.typescript;
       let utilName = name;
       let targetDir: string | undefined = undefined;
       if (options.interactive) {
@@ -152,12 +154,12 @@ async function createUtilInPath(utilName: string, fullPath: string, useTS: boole
       : `export const ${utilName} = (input) => {\n  return input.toUpperCase();\n};\n`;
     fs.writeFileSync(utilFilePath, content);
     console.log(chalk.green(`✅ Created util: ${utilFilePath}`));
-  } catch (error: any) {
+  } catch (error: unknown ) {
     console.log(chalk.red(`❌ Error creating util:`));
-    console.error(chalk.red(error.message));
-    if (error.code === 'ENOENT') {
+    console.error(chalk.red(error instanceof Error ? error.message : 'Unknown error'));
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-    } else if (error.code === 'EACCES') {
+    } else if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
       console.log(chalk.yellow('💡 You might need permission to write to this directory'));
     }
   }

@@ -10,7 +10,7 @@ export function handleGlobal(program: Command, rl: readline.Interface) {
     .command('global')
     .description('Create multiple global resources')
     .option('-i, --interactive', 'Use interactive mode')
-    .action(async (options: any) => {
+    .action(async (options) => {
       const config = await setupConfiguration(rl);
       if (options.interactive) {
         console.log(chalk.cyan.bold('\n✨ Creating global resources interactively ✨'));

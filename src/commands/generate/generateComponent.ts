@@ -1,162 +1,44 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
+import { createFile } from '../../utils/file';
+import { generateComponentWithAI, confirmAIOutput, getAIFeatures, GenerateOptions } from '../../utils/generateAIHelper';
+import type { CLIConfig } from '../../utils/config';
+import { Interface as ReadlineInterface } from 'readline';
 import { setupConfiguration } from '../../utils/config';
-import { askQuestion } from '../../utils/prompt';
-import { createFile, createFolder } from '../../utils/file';
-import { 
-  shouldUseAI, 
-  generateComponentWithAI, 
-  getAIFeatures, 
-  confirmAIOutput 
-} from '../../utils/generateAIHelper';
 
-function findFoldersByName(baseDir: string, folderName: string): string[] {
-  const results: string[] = [];
-  function search(dir: string) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        if (entry.name.toLowerCase() === folderName.toLowerCase()) {
-          results.push(path.join(dir, entry.name));
-        }
-        search(path.join(dir, entry.name));
-      }
-    }
-  }
-  search(baseDir);
-  return results;
+interface ComponentOptions extends GenerateOptions {
+  css?: boolean;
+  test?: boolean;
+  replace?: boolean;
+  useAI?: boolean;
+  aiFeatures?: string;
 }
 
-export function registerGenerateComponent(generate: Command, rl: any) {
+export function registerGenerateComponent(generate: Command, rl: ReadlineInterface) {
   generate
     .command('component [name] [folder]')
-    .description('Generate a functional React component (optionally in a specific folder under app/)')
-    .option('--ts', 'Generate as TypeScript (.tsx)')
-    .option('--css', 'Generate a CSS module alongside the component')
-    .option('--test', 'Generate a test file for the component')
-    .option('--replace', 'Replace file if it exists')
-    .option('-i, --interactive', 'Use interactive mode for component and folder selection')
-    .option('--ai', 'Use AI to generate the component code')
-    .action(async (name: string | undefined, folder: string | undefined, options: any) => {
+    .description('Generate a new React component')
+    .option('--css', 'Include CSS module')
+    .option('--test', 'Include test file')
+    .option('--replace', 'Replace existing files')
+    .option('--ai', 'Use AI to generate code')
+    .action(async (name: string | undefined, folder: string | undefined, options: ComponentOptions) => {
       try {
+        if (!name) {
+          console.log(chalk.red('❌ Component name is required'));
+          return;
+        }
+
         const config = await setupConfiguration(rl);
-        const useTS = options.ts ?? config.typescript;
-        let componentName = name;
-        let targetDir: string | undefined = undefined;
-        let useAI = false;
-        let aiFeatures = '';
-
-        if (options.interactive) {
-          console.log(chalk.cyan('\n🎨 Component Generator'));
-          console.log(chalk.dim('======================'));
-
-          // 1. Prompt for component name
-          componentName = (await askQuestion(rl, chalk.blue('Enter component name (PascalCase): '))) || '';
-          if (!/^[A-Z][a-zA-Z0-9]*$/.test(componentName)) {
-            console.log(chalk.red('❌ Component name must be PascalCase and start with a capital letter'));
-            return;
-          }
-
-          // 2. Ask about AI usage if enabled
-          if (config.aiEnabled) {
-            useAI = await shouldUseAI(rl, options, config);
-            if (useAI) {
-              aiFeatures = await getAIFeatures(rl, 'Component');
-            }
-          }
-
-          // 3. Ask if user wants to add to a specific folder
-          const useFolder = await askQuestion(rl, chalk.blue('Add to a specific folder under app/? (y/n): '));
-          if (useFolder.toLowerCase() === 'y') {
-            // 4. Prompt for folder name
-            const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
-            if (!folderName) {
-              console.log(chalk.red('❌ Folder name required.'));
-              return;
-            }
-            if (folderName.includes('/') || folderName.includes('\\')) {
-              targetDir = path.join(config.baseDir, folderName);
-            } else {
-              const baseSearch = path.join(process.cwd(), 'app');
-              const matches = findFoldersByName(baseSearch, folderName);
-              if (matches.length === 0) {
-                const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
-                if (createNew.toLowerCase() !== 'y') {
-                  console.log(chalk.yellow('⏩ Component creation cancelled'));
-                  return;
-                }
-                targetDir = path.join(baseSearch, folderName);
-                fs.mkdirSync(targetDir, { recursive: true });
-                console.log(chalk.green(`📁 Created directory: ${targetDir}`));
-              } else if (matches.length === 1) {
-                targetDir = matches[0];
-              } else {
-                let chosen = matches[0];
-                console.log(chalk.yellow('Multiple folders found:'));
-                matches.forEach((m, i) => console.log(`${i + 1}: ${m}`));
-                const idx = await askQuestion(rl, chalk.blue('Select folder number: '));
-                const num = parseInt(idx, 10);
-                if (!isNaN(num) && num >= 1 && num <= matches.length) {
-                  chosen = matches[num - 1];
-                } else {
-                  console.log(chalk.red('Invalid selection. Component creation cancelled.'));
-                  return;
-                }
-                targetDir = chosen;
-              }
-            }
-          } else {
-            targetDir = path.join(config.baseDir, 'components');
-          }
-
-          // 5. Ask about additional options if not using AI
-          if (!useAI) {
-            options.css = (await askQuestion(rl, chalk.blue('Generate CSS module? (y/n): '))) === 'y';
-            options.test = (await askQuestion(rl, chalk.blue('Generate test file? (y/n): '))) === 'y';
-          }
-
-          await createComponentInPath(componentName, targetDir, useTS, { ...options, useAI, aiFeatures, rl }, config);
-          return;
-        }
-
-        // Non-interactive mode
-        if (!componentName) {
-          console.log(chalk.red('❌ Component name is required.'));
-          return;
-        }
-        if (!/^[A-Z][a-zA-Z0-9]*$/.test(componentName)) {
-          console.log(chalk.red('❌ Component name must be PascalCase and start with a capital letter'));
-          return;
-        }
-
-        useAI = await shouldUseAI(rl, options, config);
-
-        if (folder) {
-          if (folder.includes('/') || folder.includes('\\')) {
-            targetDir = path.join(config.baseDir, folder);
-          } else {
-            const baseSearch = path.join(process.cwd(), 'app');
-            const matches = findFoldersByName(baseSearch, folder);
-            if (matches.length === 0) {
-              console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
-              return;
-            } else if (matches.length === 1) {
-              targetDir = matches[0];
-            } else {
-              targetDir = matches[0]; // Default to first match
-            }
-          }
+        await createComponentInPath(name, folder || 'components', config.typescript, options, config);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          console.error(chalk.red('Error:'), error.message);
         } else {
-          targetDir = path.join(config.baseDir, 'components');
+          console.error(chalk.red('Error:'), String(error));
         }
-
-        await createComponentInPath(componentName, targetDir, useTS, { ...options, useAI, rl }, config);
-      } catch (error) {
-        console.error(chalk.red('\n❌ Error:'), error instanceof Error ? error.message : 'Unknown error');
-      } finally {
-        rl.close();
       }
     });
 }
@@ -165,8 +47,8 @@ async function createComponentInPath(
   componentName: string, 
   fullPath: string, 
   useTS: boolean, 
-  options: any,
-  config?: any
+  options: ComponentOptions,
+  config?: CLIConfig
 ) {
   try {
     if (!fs.existsSync(fullPath)) {
@@ -191,7 +73,7 @@ async function createComponentInPath(
       });
 
       if (aiContent && (!fs.existsSync(componentFile) || options.replace)) {
-        if (await confirmAIOutput(options.rl, aiContent)) {
+        if (options.rl && await confirmAIOutput(options.rl, aiContent)) {
           componentContent = aiContent;
         }
       }
@@ -229,13 +111,19 @@ async function createComponentInPath(
         console.log(chalk.yellow(`⚠️ Test file exists: ${testFile} (use --replace to overwrite)`));
       }
     }
-  } catch (error: any) {
-    console.log(chalk.red(`❌ Error creating component:`));
-    console.error(chalk.red(error.message));
-    if (error.code === 'ENOENT') {
-      console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-    } else if (error.code === 'EACCES') {
-      console.log(chalk.yellow('💡 You might need permission to write to this directory'));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(chalk.red('Error:'), error.message);
+      if ('code' in error) {
+        const fsError = error as { code: string };
+        if (fsError.code === 'ENOENT') {
+          console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
+        } else if (fsError.code === 'EACCES') {
+          console.log(chalk.yellow('💡 You might need permission to write to this directory'));
+        }
+      }
+    } else {
+      console.error(chalk.red('Error:'), String(error));
     }
   }
 } 

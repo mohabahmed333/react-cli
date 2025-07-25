@@ -2,15 +2,17 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs';
-import { setupConfiguration } from '../../utils/config';
+import { CLIConfig, setupConfiguration } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
 import { createFile, createFolder } from '../../utils/file';
 import {
   shouldUseAI,
   generatePageWithAI,
   getAIFeatures,
-  confirmAIOutput
+  confirmAIOutput,
+  GenerateOptions
 } from '../../utils/generateAIHelper';
+import { Interface as ReadlineInterface } from 'readline';
 
 function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -29,7 +31,7 @@ function findFoldersByName(baseDir: string, folderName: string): string[] {
   return results;
 }
 
-async function createPage(name: string, options: any, config: any) {
+async function createPage(name: string, options: GenerateOptions, config: CLIConfig) {
   const ext = config.typescript ? 'tsx' : 'jsx';
   const basePath = config.projectType === 'next'
     ? `${config.baseDir}/pages/${config.localization ? '[lang]/' : ''}${name}`
@@ -72,7 +74,7 @@ async function createPage(name: string, options: any, config: any) {
     });
 
     if (aiContent && (!fs.existsSync(`${basePath}/${name}.${ext}`) || options.replace)) {
-      if (await confirmAIOutput(options.rl, aiContent)) {
+      if (options.rl && await confirmAIOutput(options.rl, aiContent)) {
         pageContent = aiContent;
       }
     }
@@ -120,7 +122,7 @@ async function createPage(name: string, options: any, config: any) {
   console.log(chalk.green.bold(`\n 389 Created ${name} page at ${basePath}`));
 }
 
-export function registerGeneratePage(generate: Command, rl: any) {
+export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
   generate
     .command('page [name] [folder]')
     .description('Generate a page with components (optionally in a specific folder under app/)')
@@ -137,7 +139,7 @@ export function registerGeneratePage(generate: Command, rl: any) {
     .option('--layout', 'Include layout file')
     .option('-i, --interactive', 'Use interactive mode for page and folder selection')
     .option('--ai', 'Use AI to generate the page code')
-    .action(async (name: string | undefined, folder: string | undefined, options: any) => {
+    .action(async (name: string | undefined, folder: string | undefined, options: GenerateOptions) => {
       try {
         console.log(chalk.cyan('\n📄 Page Generator'));
         console.log(chalk.dim('======================'));

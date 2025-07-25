@@ -69,6 +69,11 @@ const Example = () => <Component />;
 `
 };
 
+interface SafetySetting {
+  category: HarmCategory;
+  threshold: HarmBlockThreshold;
+}
+
 function getDefaultTemplate(prompt: string): string | null {
   // Try to determine the type of content being requested
   if (prompt.toLowerCase().includes('component')) return defaultTemplates.component;
@@ -82,7 +87,7 @@ async function generateWithRetry(
   genAI: GoogleGenerativeAI,
   model: string,
   prompt: string,
-  safetySettings: any,
+  safetySettings: SafetySetting[] | undefined,
   retries = 3,
   backoffDelay = 1000
 ): Promise<string | null> {

@@ -1,32 +1,51 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { setupConfiguration } from '../utils/config';
+import { setupConfiguration, CLIConfig } from '../utils/config';
 import { createFile, createFolder } from '../utils/file';
+import { Interface as ReadlineInterface } from 'readline';
 
-export function handleBundleCheck(program: Command, rl: any) {
+interface BundleCheckOptions {
+  watch?: boolean;
+  budget?: string;
+  htmlReport?: boolean;
+}
+
+interface BundleDependency {
+  name: string;
+  size: number;
+}
+
+interface BundleAnalysisResults {
+  totalSize: number;
+  files: string[];
+  largestDependencies: BundleDependency[];
+  warnings: string[];
+}
+
+export function handleBundleCheck(program: Command, rl: ReadlineInterface) {
   program
     .command('bundle-check')
     .description('Analyze application bundle size and dependencies')
     .option('--watch', 'Monitor bundle size in real-time')
     .option('--budget <kb>', 'Set size budget in KB (default: 500)', '500')
     .option('--html-report', 'Generate HTML report')
-    .action(async (options: any) => {
+    .action(async (options: BundleCheckOptions) => {
       const config = await setupConfiguration(rl);
       await performBundleAnalysis(config, options);
     });
 }
 
-async function performBundleAnalysis(config: any, options: any) {
+async function performBundleAnalysis(config: CLIConfig, options: BundleCheckOptions) {
   console.log(chalk.cyan.bold('\n📦 Starting bundle analysis...'));
   try {
     const { execSync } = require('child_process');
     const projectType = config.projectType;
-    const sizeBudgetKB = parseInt(options.budget, 10);
+    const sizeBudgetKB = parseInt(options.budget || '500', 10);
     // Step 1: Build the project
     console.log(chalk.blue('Building project for analysis...'));
-    const buildCommand = projectType === 'next' 
-      ? 'next build' 
+    const buildCommand = projectType === 'next'
+      ? 'next build'
       : 'scripts build';
     execSync(buildCommand, { stdio: 'inherit' });
     // Step 2: Analyze bundle
@@ -43,17 +62,21 @@ async function performBundleAnalysis(config: any, options: any) {
     }
     // Step 5: Check against budget
     checkBundleBudget(bundleResults, sizeBudgetKB);
-  } catch (error: any) {
-    console.error(chalk.red('Bundle analysis failed:'), error.message);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(chalk.red('Bundle analysis failed:'), error.message);
+    } else {
+      console.error(chalk.red('Bundle analysis failed:'), String(error));
+    }
   }
 }
 
-function parseBundleAnalysis(analysisOutput: string) {
-  const results = {
+function parseBundleAnalysis(analysisOutput: string): BundleAnalysisResults {
+  const results: BundleAnalysisResults = {
     totalSize: 0,
-    files: [] as any[],
-    largestDependencies: [] as { name: string; size: number }[],
-    warnings: [] as any[]
+    files: [],
+    largestDependencies: [],
+    warnings: []
   };
   // Simplified parsing logic (real implementation would use proper parsing)
   const sizeRegex = /(\d+\.?\d*)\s*KB/g;
@@ -75,12 +98,12 @@ function parseBundleAnalysis(analysisOutput: string) {
   return results;
 }
 
-function displayBundleReport(results: any, budget: number) {
+function displayBundleReport(results: BundleAnalysisResults, budget: number): void {
   console.log(chalk.green.bold('\nBundle Analysis Report'));
   console.log(chalk.cyan('--------------------------------'));
   console.log(`Total Bundle Size: ${chalk.bold(results.totalSize.toFixed(2))} KB`);
   console.log(chalk.cyan('\nTop Dependencies:'));
-  results.largestDependencies.slice(0, 5).forEach((dep: any) => {
+  results.largestDependencies.slice(0, 5).forEach((dep) => {
     console.log(`- ${dep.name.padEnd(20)} ${dep.size.toFixed(2)} KB`);
   });
   console.log(chalk.cyan('\nRecommendations:'));
@@ -88,7 +111,7 @@ function displayBundleReport(results: any, budget: number) {
     console.log(chalk.yellow(`⚠️ Bundle exceeds budget of ${budget} KB by ${(results.totalSize - budget).toFixed(2)} KB`));
     console.log(chalk.yellow('   Consider code splitting or lazy loading'));
   }
-  if (results.largestDependencies.some((d: any) => d.size > 100)) {
+  if (results.largestDependencies.some(d => d.size > 100)) {
     console.log(chalk.yellow('⚠️ Found large dependencies (>100 KB)'));
     console.log(chalk.yellow('   Review if these can be optimized or replaced'));
   }
@@ -97,7 +120,7 @@ function displayBundleReport(results: any, budget: number) {
   }
 }
 
-function generateHtmlReport(results: any) {
+function generateHtmlReport(results: BundleAnalysisResults): void {
   const reportDir = 'bundle-reports';
   createFolder(reportDir);
   const reportPath = path.join(reportDir, `bundle-report-${Date.now()}.html`);
@@ -166,7 +189,7 @@ function generateHtmlReport(results: any) {
   console.log(chalk.green(`✅ Generated HTML report: ${path.resolve(reportPath)}`));
 }
 
-function checkBundleBudget(results: any, budget: number) {
+function checkBundleBudget(results: BundleAnalysisResults, budget: number): void {
   if (results.totalSize > budget) {
     console.log(chalk.red.bold(`\n❌ Bundle exceeds size budget of ${budget} KB`));
     console.log(chalk.red(`  Current size: ${results.totalSize.toFixed(2)} KB`));

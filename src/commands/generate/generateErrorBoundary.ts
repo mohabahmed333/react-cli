@@ -3,13 +3,14 @@ import chalk from 'chalk';
 import path from 'path';
 import { setupConfiguration } from '../../utils/config';
 import { createFile, createFolder } from '../../utils/file';
+import { Interface as ReadlineInterface } from 'readline';
 
-export function registerGenerateErrorBoundary(generate: Command, rl: any) {
+export function registerGenerateErrorBoundary(generate: Command, rl: ReadlineInterface) {
   generate
     .command('error-boundary')
     .description('Create a reusable error boundary component')
     .option('--replace', 'Replace file if it exists')
-    .action(async (options: any) => {
+    .action(async (options) => {
       const config = await setupConfiguration(rl);
       const ext = config.typescript ? 'tsx' : 'jsx';
       const folderPath = path.join(config.baseDir, 'components');

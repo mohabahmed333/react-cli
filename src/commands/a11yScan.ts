@@ -1,11 +1,57 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { setupConfiguration } from '../utils/config';
+import { setupConfiguration, CLIConfig } from '../utils/config';
 import { createFile, createFolder } from '../utils/file';
 import { getDevServerPort, getStartCommand } from '../utils/buildTools';
+import { Interface as ReadlineInterface } from 'readline';
 
-export function handleA11yScan(program: Command, rl: any) {
+interface A11yScanOptions {
+  fix?: boolean;
+  report?: boolean;
+  component?: string;
+  url?: string;
+  level?: 'A' | 'AA' | 'AAA';
+}
+
+interface A11yNode {
+  html: string;
+  failureSummary?: string;
+  any: Array<{
+    id: string;
+    message: string;
+  }>;
+}
+
+interface A11yViolation {
+  id: string;
+  help: string;
+  helpUrl: string;
+  impact: 'minor' | 'moderate' | 'serious' | 'critical';
+  description: string;
+  nodes: A11yNode[];
+  tags: string[];
+  any: Array<{
+    message: string;
+    id: string;
+  }>;
+}
+
+interface A11yScanResults {
+  violations: A11yViolation[];
+  passes: any[];
+  incomplete: Array<{
+    id: string;
+    help: string;
+    impact: string;
+    description: string;
+    helpUrl: string;
+  }>;
+  url?: string;
+  component?: string;
+}
+
+export function handleA11yScan(program: Command, rl: ReadlineInterface) {
   program
     .command('a11y-scan')
     .description('Check accessibility compliance')
@@ -14,13 +60,13 @@ export function handleA11yScan(program: Command, rl: any) {
     .option('--component <path>', 'Scan specific component file')
     .option('--url <url>', 'Scan specific URL (local or remote)')
     .option('--level <level>', 'WCAG level (A, AA, AAA)', 'AA')
-    .action(async (options: any) => {
+    .action(async (options: A11yScanOptions) => {
       const config = await setupConfiguration(rl);
       await runA11yScan(config, options);
     });
 }
 
-async function runA11yScan(config: any, options: any) {
+async function runA11yScan(config: CLIConfig, options: A11yScanOptions) {
   console.log(chalk.cyan.bold('\n♿ Starting accessibility scan...'));
   try {
     const { execSync } = require('child_process');
@@ -47,16 +93,16 @@ async function runA11yScan(config: any, options: any) {
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
     // 3. Run accessibility scan
-    let results;
+    let results: A11yScanResults;
     if (options.component) {
       console.log(chalk.blue(`Scanning component: ${scanTarget}`));
-      results = await scanComponent(scanTarget, options.level);
+      results = await scanComponent(scanTarget, options.level || 'AA');
     } else {
       console.log(chalk.blue(`Scanning URL: ${scanTarget}`));
-      results = await scanUrl(scanTarget, options.level);
+      results = await scanUrl(scanTarget, options.level || 'AA');
     }
     // 4. Display results
-    displayA11yResults(results, options.level);
+    displayA11yResults(results, options.level || 'AA');
     // 5. Generate report
     if (options.report) {
       generateA11yReport(results, config);
@@ -69,14 +115,18 @@ async function runA11yScan(config: any, options: any) {
     if (serverProcess) {
       process.kill(-serverProcess.pid);
     }
-  } catch (error: any) {
-    console.error(chalk.red('Accessibility scan failed:'), error.message);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(chalk.red('Accessibility scan failed:'), error.message);
+    } else {
+      console.error(chalk.red('Accessibility scan failed:'), String(error));
+    }
     process.exit(1);
   }
 }
 
 
-async function scanComponent(componentPath: string, level: string) {
+async function scanComponent(componentPath: string, level: string): Promise<A11yScanResults> {
   const fs = require('fs');
   const { JSDOM } = require('jsdom');
   const axeCore = require('axe-core');
@@ -116,7 +166,7 @@ async function scanComponent(componentPath: string, level: string) {
   return results;
 }
 
-async function scanUrl(url: string, level: string) {
+async function scanUrl(url: string, level: string): Promise<A11yScanResults> {
   const axios = require('axios');
   const { JSDOM } = require('jsdom');
   const axeCore = require('axe-core');
@@ -151,7 +201,7 @@ async function scanUrl(url: string, level: string) {
   return results;
 }
 
-function displayA11yResults(results: any, level: string) {
+function displayA11yResults(results: A11yScanResults, level: string): void {
   const violations = results.violations || [];
   const passes = results.passes || [];
   const incomplete = results.incomplete || [];
@@ -201,7 +251,7 @@ function displayA11yResults(results: any, level: string) {
   }
 }
 
-function generateA11yReport(results: any, config: any) {
+function generateA11yReport(results: A11yScanResults, config: CLIConfig): void {
   const reportDir = 'a11y-reports';
   createFolder(reportDir);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -374,7 +424,7 @@ function generateA11yReport(results: any, config: any) {
   console.log(chalk.green(`✅ Generated accessibility report: ${path.resolve(reportPath)}`));
 }
 
-async function attemptFixes(componentPath: string, results: any) {
+async function attemptFixes(componentPath: string, results: A11yScanResults): Promise<void> {
   const fs = require('fs');
   const color = require('color');
   let componentCode = fs.readFileSync(componentPath, 'utf8');
@@ -434,7 +484,7 @@ async function attemptFixes(componentPath: string, results: any) {
   }
 }
 
-function getComponentName(componentPath: string) {
+function getComponentName(componentPath: string): string {
   return path.basename(componentPath)
     .replace(/\.[^/.]+$/, '')
     .replace(/[^a-zA-Z0-9_$]/g, '');

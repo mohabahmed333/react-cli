@@ -5,6 +5,8 @@ import fs from 'fs';
 import { setupConfiguration } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
 import { createFile, createFolder } from '../../utils/file';
+import { Interface as ReadlineInterface } from 'readline';
+import { GenerateOptions } from '../../utils/generateAIHelper';
 
 function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -16,20 +18,20 @@ function findFoldersByName(baseDir: string, folderName: string): string[] {
           results.push(path.join(dir, entry.name));
         }
         search(path.join(dir, entry.name));
-      }
+      }   
     }
   }
   search(baseDir);
   return results;
 }
 
-export function registerGenerateHoc(generate: Command, rl: any) {
+export function registerGenerateHoc(generate: Command, rl: ReadlineInterface) {
   generate
     .command('hoc [name] [folder]')
     .description('Generate a higher-order component (optionally in a specific folder under app/)')
     .option('--replace', 'Replace file if it exists')
     .option('-i, --interactive', 'Use interactive mode for HOC and folder selection')
-    .action(async (name: string | undefined, folder: string | undefined, options: any) => {
+    .action(async (name: string | undefined, folder: string | undefined, options: GenerateOptions) => {
       const config = await setupConfiguration(rl);
       const useTS = config.typescript;
       let hocName = name;
@@ -145,12 +147,13 @@ async function createHocInPath(hocName: string, fullPath: string, useTS: boolean
       : `import React from 'react';\n\nexport function with${hocName}(WrappedComponent) {\n  return function ComponentWith${hocName}(props) {\n    // Add your HOC logic here\n    return <WrappedComponent {...props} />;\n  };\n}\n`;
     fs.writeFileSync(hocFilePath, content);
     console.log(chalk.green(`✅ Created HOC: ${hocFilePath}`));
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(chalk.red(`❌ Error creating HOC:`));
-    console.error(chalk.red(error.message));
-    if (error.code === 'ENOENT') {
+    console.error(chalk.red(errorMessage));
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-    } else if (error.code === 'EACCES') {
+    } else if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
       console.log(chalk.yellow('💡 You might need permission to write to this directory'));
     }
   }

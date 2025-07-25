@@ -4,15 +4,17 @@ import path from 'path';
 import { setupConfiguration } from '../../utils/config';
 import { createFile, createFolder } from '../../utils/file';
 import { askQuestion } from '../../utils/prompt';
-import { 
-  shouldUseAI, 
-  generateLayoutWithAI, 
-  getAIFeatures, 
-  confirmAIOutput 
+import {
+  shouldUseAI,
+  generateLayoutWithAI,
+  getAIFeatures,
+  confirmAIOutput,
+  GenerateOptions
 } from '../../utils/generateAIHelper';
 import fs from 'fs';
+import { Interface as ReadlineInterface } from 'readline';
 
-export function registerGenerateLayout(generate: Command, rl: any) {
+export function registerGenerateLayout(generate: Command, rl: ReadlineInterface) {
   generate
     .command('layout <n>')
     .description('Create a layout component with nested routing support')
@@ -21,7 +23,7 @@ export function registerGenerateLayout(generate: Command, rl: any) {
     .option('--replace', 'Replace file if it exists')
     .option('-i, --interactive', 'Use interactive mode')
     .option('--ai', 'Use AI to generate the layout code')
-    .action(async (name: string, options: any) => {
+    .action(async (name: string, options: GenerateOptions) => {
       try {
         console.log(chalk.cyan('\n🎨 Layout Generator'));
         console.log(chalk.dim('======================'));
@@ -43,7 +45,7 @@ export function registerGenerateLayout(generate: Command, rl: any) {
               console.log(chalk.cyan('\n📝 Layout Configuration'));
               options.sidebar = (await askQuestion(rl, chalk.blue('Include sidebar? (y/n): '))) === 'y';
               options.navbar = (await askQuestion(rl, chalk.blue('Include navbar? (y/n): '))) === 'y';
-              
+
               console.log(chalk.cyan('\nDescribe additional features (e.g., "responsive design, theme switching, nested routing"):'));
               aiFeatures = await getAIFeatures(rl, 'Layout');
             }
@@ -61,7 +63,7 @@ export function registerGenerateLayout(generate: Command, rl: any) {
           });
 
           if (aiContent && (!fs.existsSync(filePath) || options.replace)) {
-            if (await confirmAIOutput(rl, aiContent)) {
+            if (rl && await confirmAIOutput(rl, aiContent)) {
               content = aiContent;
             }
           }
@@ -80,8 +82,14 @@ export function registerGenerateLayout(generate: Command, rl: any) {
         } else {
           console.log(chalk.yellow(`⚠️ Layout exists: ${filePath} (use --replace to overwrite)`));
         }
-      } catch (error) {
-        console.error(chalk.red('❌ Error generating layout:'), error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(chalk.red('❌ Error generating layout:'), errorMessage);
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+          console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
+        } else if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
+          console.log(chalk.yellow('💡 You might need permission to write to this directory'));
+        }
       } finally {
         rl.close();
       }

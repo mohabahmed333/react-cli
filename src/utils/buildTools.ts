@@ -1,10 +1,14 @@
+import { CLIConfig } from './config';
+
 interface BuildToolConfig {
   id: string;
   startCommand: string;
   defaultPort: number;
 }
 
-export const buildTools: Record<string, BuildToolConfig> = {
+type BuildToolId = 'vite' | 'next' | 'react-scripts';
+
+export const buildTools: Record<BuildToolId, BuildToolConfig> = {
   vite: {
     id: 'vite',
     startCommand: 'vite',
@@ -22,7 +26,12 @@ export const buildTools: Record<string, BuildToolConfig> = {
   }
 };
 
-export function getBuildToolConfig(config: any): BuildToolConfig {
+interface BuildToolConfigInput {
+  buildTool?: BuildToolId;
+  projectType?: 'react' | 'next';
+}
+
+export function getBuildToolConfig(config: BuildToolConfigInput): BuildToolConfig {
   if (config.buildTool && buildTools[config.buildTool]) {
     return buildTools[config.buildTool];
   }
@@ -35,7 +44,7 @@ export function getBuildToolConfig(config: any): BuildToolConfig {
   return buildTools['react-scripts'];
 }
 
-export function getDevServerPort(config: any): number {
+export function getDevServerPort(config: CLIConfig): number {
   if (config.port) {
     return config.port;
   }
@@ -44,7 +53,7 @@ export function getDevServerPort(config: any): number {
   return toolConfig.defaultPort;
 }
 
-export function getStartCommand(config: any): string {
+export function getStartCommand(config: CLIConfig): string {
   const toolConfig = getBuildToolConfig(config);
   return toolConfig.startCommand;
 }

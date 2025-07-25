@@ -2,15 +2,31 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs';
-import { setupConfiguration } from '../../utils/config';
+import { setupConfiguration, CLIConfig } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
 import { createFile, createFolder } from '../../utils/file';
 import { 
   shouldUseAI, 
   generateReduxWithAI, 
   getAIFeatures, 
-  confirmAIOutput 
+  confirmAIOutput,
+  GenerateOptions 
 } from '../../utils/generateAIHelper';
+import { Interface as ReadlineInterface } from 'readline';
+
+interface ReduxOptions extends GenerateOptions {
+  ts?: boolean;
+  interactive?: boolean;
+  replace?: boolean;
+  ai?: boolean;
+}
+
+interface ReduxGenerateOptions {
+  useAI: boolean;
+  config: CLIConfig;
+  aiFeatures: string;
+  rl?: ReadlineInterface;
+}
 
 function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -29,7 +45,7 @@ function findFoldersByName(baseDir: string, folderName: string): string[] {
   return results;
 }
 
-export function registerGenerateRedux(generate: Command, rl: any) {
+export function registerGenerateRedux(generate: Command, rl: ReadlineInterface) {
   generate
     .command('redux [name] [folder]')
     .description('Generate a Redux slice (optionally in a specific folder under app/)')
@@ -37,7 +53,7 @@ export function registerGenerateRedux(generate: Command, rl: any) {
     .option('-i, --interactive', 'Use interactive mode for redux and folder selection')
     .option('--replace', 'Replace file if it exists')
     .option('--ai', 'Use AI to generate the Redux slice code')
-    .action(async (name: string | undefined, folder: string | undefined, options: any) => {
+    .action(async (name: string | undefined, folder: string | undefined, options: ReduxOptions) => {
       try {
         console.log(chalk.cyan('\n📦 Redux Slice Generator'));
         console.log(chalk.dim('======================'));
@@ -74,7 +90,6 @@ export function registerGenerateRedux(generate: Command, rl: any) {
             const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
             if (!folderName) {
               console.log(chalk.red('❌ Folder name required.'));
-              rl.close();
               return;
             }
             if (folderName.includes('/') || folderName.includes('\\')) {
@@ -86,7 +101,6 @@ export function registerGenerateRedux(generate: Command, rl: any) {
                 const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
                 if (createNew.toLowerCase() !== 'y') {
                   console.log(chalk.yellow('⏩ Redux slice creation cancelled'));
-                  rl.close();
                   return;
                 }
                 targetDir = path.join(baseSearch, folderName);
@@ -104,7 +118,6 @@ export function registerGenerateRedux(generate: Command, rl: any) {
                   chosen = matches[num - 1];
                 } else {
                   console.log(chalk.red('Invalid selection. Redux slice creation cancelled.'));
-                  rl.close();
                   return;
                 }
                 targetDir = chosen;
@@ -113,21 +126,20 @@ export function registerGenerateRedux(generate: Command, rl: any) {
           } else {
             targetDir = path.join(config.baseDir, 'store');
           }
-          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures });
-          rl.close();
+          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures, rl });
           return;
         }
-        // Non-interactive mode (legacy)
+
+        // Non-interactive mode
         if (!reduxName) {
           console.log(chalk.red('❌ Redux slice name is required.'));
-          rl.close();
           return;
         }
         if (!/^[A-Z][a-zA-Z0-9]*$/.test(reduxName)) {
           console.log(chalk.red('❌ Redux slice name must be PascalCase and start with a capital letter'));
-          rl.close();
           return;
         }
+
         if (folder) {
           if (folder.includes('/') || folder.includes('\\')) {
             targetDir = path.join(config.baseDir, folder);
@@ -136,7 +148,6 @@ export function registerGenerateRedux(generate: Command, rl: any) {
             const matches = findFoldersByName(baseSearch, folder);
             if (matches.length === 0) {
               console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
-              rl.close();
               return;
             } else if (matches.length === 1) {
               targetDir = matches[0];
@@ -144,20 +155,28 @@ export function registerGenerateRedux(generate: Command, rl: any) {
               targetDir = matches[0]; // Default to first match
             }
           }
-          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures });
+          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures, rl });
         } else {
           targetDir = path.join(config.baseDir, 'store');
-          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures });
+          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures, rl });
         }
-        rl.close();
-      } catch (error: any) {
-        console.error(chalk.red(error.message));
-        rl.close();
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          console.error(chalk.red(error.message));
+        } else {
+          console.error(chalk.red('An unknown error occurred'));
+        }
       }
     });
 }
 
-async function createReduxInPath(reduxName: string, fullPath: string, useTS: boolean, replace = false, options: any = {}) {
+async function createReduxInPath(
+  reduxName: string, 
+  fullPath: string, 
+  useTS: boolean, 
+  replace = false, 
+  options: ReduxGenerateOptions
+) {
   try {
     if (!fs.existsSync(fullPath)) {
       fs.mkdirSync(fullPath, { recursive: true });
@@ -173,7 +192,7 @@ async function createReduxInPath(reduxName: string, fullPath: string, useTS: boo
       });
 
       if (aiContent && (!fs.existsSync(reduxFilePath) || replace)) {
-        if (await confirmAIOutput(options.rl, aiContent)) {
+        if (options.rl && await confirmAIOutput(options.rl, aiContent)) {
           content = aiContent;
         }
       }
@@ -190,13 +209,20 @@ async function createReduxInPath(reduxName: string, fullPath: string, useTS: boo
     } else {
       console.log(chalk.yellow(`⚠️ Redux slice exists: ${reduxFilePath} (use --replace to overwrite)`));
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log(chalk.red(`❌ Error creating Redux slice:`));
-    console.error(chalk.red(error.message));
-    if (error.code === 'ENOENT') {
-      console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-    } else if (error.code === 'EACCES') {
-      console.log(chalk.yellow('💡 You might need permission to write to this directory'));
+    if (error instanceof Error) {
+      console.error(chalk.red(error.message));
+      if ('code' in error) {
+        const fsError = error as { code: string };
+        if (fsError.code === 'ENOENT') {
+          console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
+        } else if (fsError.code === 'EACCES') {
+          console.log(chalk.yellow('💡 You might need permission to write to this directory'));
+        }
+      }
+    } else {
+      console.error(chalk.red(String(error)));
     }
   }
 } 

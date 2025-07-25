@@ -1,10 +1,11 @@
 import path from 'path';
 import fs from 'fs-extra';
 import { updateStoreForRtkQueryTS } from './generateRtkQuery/RtkStoreUpdater';
- import { generateAxiosCrudTS } from './generateAxios';
+import { generateAxiosCrudTS } from './generateAxios';
 import { generateReactQueryCrudTS } from './generateReactQuery';
 import { setupConfiguration } from '../../utils/config';
 import { generateRtkQueryCrudTS } from './generateRtkQuery/generateRtkQuery';
+import { Interface as ReadlineInterface } from 'readline';
 // import your template generators here:
 // import { generateAxiosCrudTS, generateReactQueryCrudTS, generateRtkQueryCrudTS } from './templates';
 
@@ -13,7 +14,9 @@ export interface CrudOptions {
   typescript: boolean;
   errorHandler: 'basic' | 'detailed' | 'toast';
   outputDir?: string;
-  rl?: any;
+  rl?: ReadlineInterface;
+  useAlias?: boolean;
+  interactive: boolean;
 }
 
 async function addQueryKeys(resource: string, queryKeysFile: string) {
@@ -46,9 +49,9 @@ export async function generateCrudServices(resourceName: string, options: CrudOp
 
   // Use outputDir if provided, otherwise default to src/services
   const projectRoot = process.cwd();
-  const config = await setupConfiguration(rl);
+  const config = await setupConfiguration(rl as ReadlineInterface);
   const baseDir = outputDir ? path.relative(projectRoot, path.dirname(outputDir)) : (config.baseDir || 'src');
-  const useAlias = (config as any)?.useAlias || false;
+  const useAlias = options.useAlias || false;
   const servicesDir = outputDir || path.join(projectRoot, baseDir, 'services');
   await fs.ensureDir(servicesDir);
 

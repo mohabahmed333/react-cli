@@ -1,121 +1,71 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import path from 'path';
 import fs from 'fs';
-import { setupConfiguration } from '../../utils/config';
-import { askQuestion } from '../../utils/prompt';
+import path from 'path';
 import { createFile } from '../../utils/file';
-import { 
-  shouldUseAI, 
-  generateServiceWithAI, 
-  getAIFeatures, 
-  confirmAIOutput 
-} from '../../utils/generateAIHelper';
+import { generateServiceWithAI, confirmAIOutput, getAIFeatures, GenerateOptions } from '../../utils/generateAIHelper';
+import type { CLIConfig } from '../../utils/config';
+import { Interface as ReadlineInterface } from 'readline';
+import { setupConfiguration } from '../../utils/config';
 
-export function registerGenerateService(generate: Command, rl: any) {
+interface ServiceOptions extends GenerateOptions {
+  crud?: boolean;
+  api?: 'axios' | 'react-query' | 'rtk-query';
+  errorHandler?: 'basic' | 'detailed' | 'toast';
+  outputDir?: string;
+  useAxios?: boolean;
+  useCrud?: boolean;
+}
+
+export function registerGenerateService(generate: Command, rl: ReadlineInterface) {
   generate
     .command('service [name]')
-    .description('Generate a service for API calls')
-    .option('--ts', 'Generate as TypeScript')
-    .option('--crud', 'Include CRUD operations')
-    .option('--axios', 'Use Axios for HTTP requests')
-    .option('--replace', 'Replace file if it exists')
-    .option('-i, --interactive', 'Use interactive mode')
-    .option('--ai', 'Use AI to generate the service code')
-    .action(async (name: string | undefined, options: any) => {
+    .description('Generate a new service')
+    .option('--crud', 'Generate CRUD operations')
+    .option('--api <type>', 'API integration type (axios/react-query/rtk-query)')
+    .option('--error-handler <type>', 'Error handling type (basic/detailed/toast)')
+    .option('--output <dir>', 'Output directory')
+    .option('--replace', 'Replace existing files')
+    .option('--ai', 'Use AI to generate code')
+    .action(async (name: string | undefined, options: ServiceOptions) => {
       try {
-        console.log(chalk.cyan('\n🔧 Service Generator'));
-        console.log(chalk.dim('======================'));
-
-        const config = await setupConfiguration(rl);
-        const useTS = options.ts ?? config.typescript;
-        let serviceName = name;
-        let useAI = false;
-        let aiFeatures = '';
-        let useCrud = options.crud;
-        let useAxios = options.axios;
-
-        if (options.interactive) {
-          // Get service name
-          serviceName = (await askQuestion(rl, chalk.blue('Enter service name (PascalCase): '))) || '';
-          if (!/^[A-Z][a-zA-Z0-9]*$/.test(serviceName)) {
-            console.log(chalk.red('❌ Service name must be PascalCase and start with a capital letter'));
-            return;
-          }
-
-          // Ask about AI usage if enabled
-          if (config.aiEnabled) {
-            useAI = await shouldUseAI(rl, options, config);
-            if (useAI) {
-              console.log(chalk.cyan('\n📝 Service Configuration'));
-              useCrud = (await askQuestion(rl, chalk.blue('Include CRUD operations? (y/n): '))) === 'y';
-              useAxios = (await askQuestion(rl, chalk.blue('Use Axios for HTTP requests? (y/n): '))) === 'y';
-              
-              console.log(chalk.cyan('\nDescribe additional features (e.g., "authentication, error handling, request caching"):'));
-              aiFeatures = await getAIFeatures(rl, 'Service');
-            }
-          }
-
-          // If not using AI, ask about basic options
-          if (!useAI) {
-            useCrud = (await askQuestion(rl, chalk.blue('Include CRUD operations? (y/n): '))) === 'y';
-            useAxios = (await askQuestion(rl, chalk.blue('Use Axios for HTTP requests? (y/n): '))) === 'y';
-          }
-        } else {
-          if (!serviceName) {
-            console.log(chalk.red('❌ Service name is required.'));
-            return;
-          }
-          if (!/^[A-Z][a-zA-Z0-9]*$/.test(serviceName)) {
-            console.log(chalk.red('❌ Service name must be PascalCase and start with a capital letter'));
-            return;
-          }
-
-          useAI = await shouldUseAI(rl, options, config);
+        if (!name) {
+          console.log(chalk.red('❌ Service name is required'));
+          return;
         }
 
-        // Create service
-        await createService(
-          serviceName,
-          useTS,
-          { ...options, useAI, aiFeatures, useCrud, useAxios },
-          config,
-          rl
-        );
-
-        console.log(chalk.green('\n✨ Service generation complete!'));
-        console.log(chalk.dim('======================\n'));
-      } catch (error) {
-        console.error(chalk.red('\n❌ Error:'), error instanceof Error ? error.message : 'Unknown error');
-      } finally {
-        rl.close();
+        const config = await setupConfiguration(rl);
+        await handleService(name, options, config, rl);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          console.error(chalk.red('Error:'), error.message);
+        } else {
+          console.error(chalk.red('Error:'), String(error));
+        }
       }
     });
 }
 
-async function createService(
+async function handleService(
   name: string,
-  useTS: boolean,
-  options: any,
-  config: any,
-  rl: any
+  options: ServiceOptions,
+  config: CLIConfig,
+  rl: ReadlineInterface
 ) {
   try {
-    const servicesDir = path.join(config.baseDir, 'services');
-    if (!fs.existsSync(servicesDir)) {
-      fs.mkdirSync(servicesDir, { recursive: true });
-      console.log(chalk.green(`📁 Created services directory: ${servicesDir}`));
-    }
+    const useTS = config.typescript;
+    const serviceDir = path.join(config.baseDir, 'services');
+    const filePath = path.join(serviceDir, `${name}Service.${useTS ? 'ts' : 'js'}`);
 
-    const ext = useTS ? '.ts' : '.js';
-    const filePath = path.join(servicesDir, `${name}Service${ext}`);
+    if (!fs.existsSync(serviceDir)) {
+      fs.mkdirSync(serviceDir, { recursive: true });
+      console.log(chalk.green(`📁 Created directory: ${serviceDir}`));
+    }
 
     let serviceContent = '';
     if (options.useAI && config) {
       const aiContent = await generateServiceWithAI(name, config, {
-        features: options.aiFeatures,
-        crud: options.useCrud,
-        axios: options.useAxios
+        features: options.features
       });
 
       if (aiContent && (!fs.existsSync(filePath) || options.replace)) {
@@ -126,126 +76,9 @@ async function createService(
     }
 
     if (!serviceContent) {
-      // Generate default service content
-      const axiosImport = options.useAxios ? "import axios from 'axios';\n\n" : '';
-      const baseUrl = '`${process.env.API_URL}/api`';
-
-      if (useTS) {
-        serviceContent = `${axiosImport}interface ${name}Data {
-  id: string;
-  // Add other properties
-}
-
-export class ${name}Service {
-  private baseUrl = ${baseUrl};
-  ${options.useAxios ? `private client = axios.create();` : ''}
-
-  ${options.useCrud ? `
-  async getAll(): Promise<${name}Data[]> {
-    ${options.useAxios
-      ? `const response = await this.client.get(\`\${this.baseUrl}/${name.toLowerCase()}s\`);
-    return response.data;`
-      : `const response = await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s\`);
-    return response.json();`}
-  }
-
-  async getById(id: string): Promise<${name}Data> {
-    ${options.useAxios
-      ? `const response = await this.client.get(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`);
-    return response.data;`
-      : `const response = await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`);
-    return response.json();`}
-  }
-
-  async create(data: Omit<${name}Data, 'id'>): Promise<${name}Data> {
-    ${options.useAxios
-      ? `const response = await this.client.post(\`\${this.baseUrl}/${name.toLowerCase()}s\`, data);
-    return response.data;`
-      : `const response = await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s\`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return response.json();`}
-  }
-
-  async update(id: string, data: Partial<${name}Data>): Promise<${name}Data> {
-    ${options.useAxios
-      ? `const response = await this.client.put(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`, data);
-    return response.data;`
-      : `const response = await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return response.json();`}
-  }
-
-  async delete(id: string): Promise<void> {
-    ${options.useAxios
-      ? `await this.client.delete(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`);`
-      : `await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`, {
-      method: 'DELETE'
-    });`}
-  }` : ''}
-}`;
-      } else {
-        serviceContent = `${axiosImport}export class ${name}Service {
-  constructor() {
-    this.baseUrl = ${baseUrl};
-    ${options.useAxios ? 'this.client = axios.create();' : ''}
-  }
-
-  ${options.useCrud ? `
-  async getAll() {
-    ${options.useAxios
-      ? `const response = await this.client.get(\`\${this.baseUrl}/${name.toLowerCase()}s\`);
-    return response.data;`
-      : `const response = await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s\`);
-    return response.json();`}
-  }
-
-  async getById(id) {
-    ${options.useAxios
-      ? `const response = await this.client.get(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`);
-    return response.data;`
-      : `const response = await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`);
-    return response.json();`}
-  }
-
-  async create(data) {
-    ${options.useAxios
-      ? `const response = await this.client.post(\`\${this.baseUrl}/${name.toLowerCase()}s\`, data);
-    return response.data;`
-      : `const response = await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s\`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return response.json();`}
-  }
-
-  async update(id, data) {
-    ${options.useAxios
-      ? `const response = await this.client.put(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`, data);
-    return response.data;`
-      : `const response = await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return response.json();`}
-  }
-
-  async delete(id) {
-    ${options.useAxios
-      ? `await this.client.delete(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`);`
-      : `await fetch(\`\${this.baseUrl}/${name.toLowerCase()}s/\${id}\`, {
-      method: 'DELETE'
-    });`}
-  }` : ''}
-}`;
-      }
+      serviceContent = useTS
+        ? `import axios from 'axios';\n\nexport interface ${name}Data {\n  // Define your data types here\n}\n\nexport class ${name}Service {\n  private baseUrl = '/api/${name.toLowerCase()}';\n\n  async getAll(): Promise<${name}Data[]> {\n    const response = await axios.get(this.baseUrl);\n    return response.data;\n  }\n\n  async getById(id: string): Promise<${name}Data> {\n    const response = await axios.get(\`\${this.baseUrl}/\${id}\`);\n    return response.data;\n  }\n\n  async create(data: ${name}Data): Promise<${name}Data> {\n    const response = await axios.post(this.baseUrl, data);\n    return response.data;\n  }\n\n  async update(id: string, data: Partial<${name}Data>): Promise<${name}Data> {\n    const response = await axios.put(\`\${this.baseUrl}/\${id}\`, data);\n    return response.data;\n  }\n\n  async delete(id: string): Promise<void> {\n    await axios.delete(\`\${this.baseUrl}/\${id}\`);\n  }\n}\n`
+        : `import axios from 'axios';\n\nexport class ${name}Service {\n  constructor() {\n    this.baseUrl = '/api/${name.toLowerCase()}';\n  }\n\n  async getAll() {\n    const response = await axios.get(this.baseUrl);\n    return response.data;\n  }\n\n  async getById(id) {\n    const response = await axios.get(\`\${this.baseUrl}/\${id}\`);\n    return response.data;\n  }\n\n  async create(data) {\n    const response = await axios.post(this.baseUrl, data);\n    return response.data;\n  }\n\n  async update(id, data) {\n    const response = await axios.put(\`\${this.baseUrl}/\${id}\`, data);\n    return response.data;\n  }\n\n  async delete(id) {\n    await axios.delete(\`\${this.baseUrl}/\${id}\`);\n  }\n}\n`;
     }
 
     if (createFile(filePath, serviceContent, options.replace)) {
@@ -253,13 +86,19 @@ export class ${name}Service {
     } else {
       console.log(chalk.yellow(`⚠️ Service exists: ${filePath} (use --replace to overwrite)`));
     }
-  } catch (error: any) {
-    console.log(chalk.red(`❌ Error creating service:`));
-    console.error(chalk.red(error.message));
-    if (error.code === 'ENOENT') {
-      console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-    } else if (error.code === 'EACCES') {
-      console.log(chalk.yellow('💡 You might need permission to write to this directory'));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(chalk.red('Error:'), error.message);
+      if ('code' in error) {
+        const fsError = error as { code: string };
+        if (fsError.code === 'ENOENT') {
+          console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
+        } else if (fsError.code === 'EACCES') {
+          console.log(chalk.yellow('💡 You might need permission to write to this directory'));
+        }
+      }
+    } else {
+      console.error(chalk.red('Error:'), String(error));
     }
   }
 } 

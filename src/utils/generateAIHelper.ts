@@ -4,12 +4,39 @@ import chalk from 'chalk';
 import { askQuestion } from './prompt';
 import readline from 'readline';
 
-interface GenerateOptions {
+export interface GenerateOptions {
   name: string;
   useTS?: boolean;
   interactive?: boolean;
   ai?: boolean;
-  [key: string]: any;
+  useAI?: boolean;
+  aiFeatures?: string;
+  features?: string;
+  css?: boolean;
+  components?: boolean;
+  lib?: boolean;
+  layout?: boolean;           
+  sidebar?: boolean;
+  navbar?: boolean;
+  props?: string;
+  replace?: boolean;
+  test?: boolean;
+  rl?: readline.Interface;
+  types?:boolean;
+  utils?:boolean;
+  context?:boolean;
+  redux?:boolean;
+  hooks?:boolean;
+}
+
+export interface GenerateAIOptions {
+  features?: string;
+  css?: boolean;
+  components?: boolean;
+  lib?: boolean;
+  sidebar?: boolean;
+  navbar?: boolean;
+  props?: string;
 }
 
 export async function shouldUseAI(rl: readline.Interface, options: GenerateOptions, config: CLIConfig): Promise<boolean> {
@@ -19,7 +46,7 @@ export async function shouldUseAI(rl: readline.Interface, options: GenerateOptio
   return options.ai === true;
 }
 
-export async function generateComponentWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function     generateComponentWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate a React ${config.typescript ? 'TypeScript' : 'JavaScript'} component named ${name}.
     Requirements:
     - Use functional component
@@ -34,7 +61,7 @@ export async function generateComponentWithAI(name: string, config: CLIConfig, o
   return generateWithGemini(prompt, config);
 }
 
-export async function generateHookWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generateHookWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate a React ${config.typescript ? 'TypeScript' : 'JavaScript'} hook named ${name}.
     Requirements:
     - Follow React Hooks best practices
@@ -48,7 +75,7 @@ export async function generateHookWithAI(name: string, config: CLIConfig, option
   return generateWithGemini(prompt, config);
 }
 
-export async function generateServiceWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generateServiceWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate a ${config.typescript ? 'TypeScript' : 'JavaScript'} service named ${name}.
     Requirements:
     - Include proper types/interfaces
@@ -62,7 +89,7 @@ export async function generateServiceWithAI(name: string, config: CLIConfig, opt
   return generateWithGemini(prompt, config);
 }
 
-export async function generateTypeWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generateTypeWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate TypeScript types/interfaces named ${name}.
     Requirements:
     - Include comprehensive type definitions
@@ -75,7 +102,7 @@ export async function generateTypeWithAI(name: string, config: CLIConfig, option
   return generateWithGemini(prompt, config);
 }
 
-export async function generateUtilWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generateUtilWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate a ${config.typescript ? 'TypeScript' : 'JavaScript'} utility function named ${name}.
     Requirements:
     - Include proper types
@@ -89,7 +116,7 @@ export async function generateUtilWithAI(name: string, config: CLIConfig, option
   return generateWithGemini(prompt, config);
 }
 
-export async function generateContextWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generateContextWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate a React ${config.typescript ? 'TypeScript' : 'JavaScript'} context named ${name}.
     Requirements:
     - Include provider component
@@ -103,7 +130,7 @@ export async function generateContextWithAI(name: string, config: CLIConfig, opt
   return generateWithGemini(prompt, config);
 }
 
-export async function generateReduxWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generateReduxWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate a Redux Toolkit slice named ${name} in ${config.typescript ? 'TypeScript' : 'JavaScript'}.
     Requirements:
     - Include proper state interface/type
@@ -118,7 +145,7 @@ export async function generateReduxWithAI(name: string, config: CLIConfig, optio
   return generateWithGemini(prompt, config);
 }
 
-export async function generatePageWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generatePageWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate a React ${config.typescript ? 'TypeScript' : 'JavaScript'} page component named ${name}.
     Requirements:
     - Use functional component
@@ -136,7 +163,7 @@ export async function generatePageWithAI(name: string, config: CLIConfig, option
   return generateWithGemini(prompt, config);
 }
 
-export async function generateLayoutWithAI(name: string, config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generateLayoutWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate a React ${config.typescript ? 'TypeScript' : 'JavaScript'} layout component named ${name}Layout.
     Requirements:
     - Use functional component
@@ -153,7 +180,7 @@ export async function generateLayoutWithAI(name: string, config: CLIConfig, opti
   return generateWithGemini(prompt, config);
 }
 
-export async function generateTestUtilsWithAI(config: CLIConfig, options: any = {}): Promise<string | null> {
+export async function generateTestUtilsWithAI(config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
   const prompt = `Generate React Testing Library utilities in ${config.typescript ? 'TypeScript' : 'JavaScript'}.
     Requirements:
     - Include custom render function
@@ -179,7 +206,7 @@ export async function confirmAIOutput(rl: readline.Interface, code: string): Pro
   console.log(chalk.dim('-------------------'));
   console.log(chalk.white(code.slice(0, 300) + (code.length > 300 ? '...' : '')));
   console.log(chalk.dim('-------------------'));
-  
+
   const confirm = await askQuestion(rl, chalk.blue('Use this generated code? (y/n): '));
   return confirm.toLowerCase() === 'y';
 } 

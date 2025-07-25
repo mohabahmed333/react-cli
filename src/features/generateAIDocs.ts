@@ -5,7 +5,23 @@ import { generateWithGemini } from '../services/gemini-service';
 import { createFolder, createFile } from '../utils/docUtils';
 import type { CLIConfig } from '../utils/config';
 
-function hasExistingDocs(filePath: string, docsConfig: any): boolean {
+interface DocsConfig {
+  outputDir: string;
+  formats: Array<'storybook' | 'markdown'>;
+  force: boolean;
+  specificFile?: string;
+}
+
+interface AIDocsOptions {
+  output?: string;
+  all?: boolean;
+  storybook?: boolean;
+  md?: boolean;
+  force?: boolean;
+  file?: string;
+}
+
+function hasExistingDocs(filePath: string, docsConfig: DocsConfig): boolean {
   const ext = path.extname(filePath);
   const baseName = path.basename(filePath, ext);
   const dirName = path.dirname(filePath);
@@ -21,7 +37,7 @@ function hasExistingDocs(filePath: string, docsConfig: any): boolean {
   return hasMarkdown || hasStory;
 }
 
-async function generateAIStorybook(filePath: string, config: CLIConfig, docsConfig: any) {
+async function generateAIStorybook(filePath: string, config: CLIConfig, docsConfig: DocsConfig): Promise<void> {
   const content = fs.readFileSync(filePath, 'utf8');
   const ext = path.extname(filePath);
   const name = path.basename(filePath, ext);
@@ -55,7 +71,7 @@ async function generateAIStorybook(filePath: string, config: CLIConfig, docsConf
   }
 }
 
-async function generateAIMarkdown(filePath: string, config: CLIConfig, docsConfig: any) {
+async function generateAIMarkdown(filePath: string, config: CLIConfig, docsConfig: DocsConfig): Promise<void> {
   const content = fs.readFileSync(filePath, 'utf8');
   const ext = path.extname(filePath);
   const name = path.basename(filePath, ext);
@@ -80,10 +96,10 @@ async function generateAIMarkdown(filePath: string, config: CLIConfig, docsConfi
     - For components: document all props with types and descriptions
     - For hooks: include usage examples and return value documentation
     - Add code examples showing common use cases
-    - Include any important notes or caveats
+    - Include   important notes or caveats
     - Document TypeScript types if present
     - Add installation/import instructions
-    \nOutput ONLY the markdown documentation, no explanations:`;
+    \nOutput ONLY the markdown documentation, no explanations:`;        
   
   const mdContent = await generateWithGemini(prompt, config);
   if (mdContent) {
@@ -92,16 +108,16 @@ async function generateAIMarkdown(filePath: string, config: CLIConfig, docsConfi
   }
 }
 
-export async function generateAIDocumentation(options: any, config: CLIConfig) {
+export async function generateAIDocumentation(options: AIDocsOptions, config: CLIConfig): Promise<void> {
   if (!config.aiEnabled) {
     console.log(chalk.yellow('AI features are not enabled. Run "yarn re enable-ai" to enable them.'));
     return;
   }
 
-  const docsConfig = {
+  const docsConfig: DocsConfig = {
     outputDir: options.output || path.join(config.baseDir, 'docs'),
     formats: options.all ? ['storybook', 'markdown'] : 
-            [options.storybook && 'storybook', options.md && 'markdown'].filter(Boolean),
+            [options.storybook && 'storybook', options.md && 'markdown'].filter((f): f is 'storybook' | 'markdown' => Boolean(f)),
     force: options.force || false,
     specificFile: options.file
   };
