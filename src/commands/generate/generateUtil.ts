@@ -7,24 +7,8 @@ import { askQuestion } from '../../utils/prompt';
 import { createFile } from '../../utils/file';
 import { Interface as ReadlineInterface } from 'readline';
 import { GenerateOptions } from '../../utils/generateAIHelper';
-
-function findFoldersByName(baseDir: string, folderName: string): string[] {
-  const results: string[] = [];
-  function search(dir: string) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        if (entry.name.toLowerCase() === folderName.toLowerCase()) {
-          results.push(path.join(dir, entry.name));
-        }
-        search(path.join(dir, entry.name));
-      }
-    }
-  }
-  search(baseDir);
-  return results;
-}
-
+import { findFoldersByName } from '../../utils/file/findFolderByName';
+ 
 export function registerGenerateUtil(generate: Command, rl: ReadlineInterface) {
   generate
     .command('util [name] [folder]')

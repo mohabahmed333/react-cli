@@ -53,14 +53,14 @@ async function runA11yScan(config, options) {
         let results;
         if (options.component) {
             console.log(chalk_1.default.blue(`Scanning component: ${scanTarget}`));
-            results = await scanComponent(scanTarget, options.level);
+            results = await scanComponent(scanTarget, options.level || 'AA');
         }
         else {
             console.log(chalk_1.default.blue(`Scanning URL: ${scanTarget}`));
-            results = await scanUrl(scanTarget, options.level);
+            results = await scanUrl(scanTarget, options.level || 'AA');
         }
         // 4. Display results
-        displayA11yResults(results, options.level);
+        displayA11yResults(results, options.level || 'AA');
         // 5. Generate report
         if (options.report) {
             generateA11yReport(results, config);
@@ -75,7 +75,12 @@ async function runA11yScan(config, options) {
         }
     }
     catch (error) {
-        console.error(chalk_1.default.red('Accessibility scan failed:'), error.message);
+        if (error instanceof Error) {
+            console.error(chalk_1.default.red('Accessibility scan failed:'), error.message);
+        }
+        else {
+            console.error(chalk_1.default.red('Accessibility scan failed:'), String(error));
+        }
         process.exit(1);
     }
 }

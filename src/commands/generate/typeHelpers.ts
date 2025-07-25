@@ -13,23 +13,9 @@ import {
 import readline from 'readline';
 import { GenerateOptions } from '../../utils/generateAIHelper';
 import { Interface } from 'readline';
+import { findFoldersByName } from '../../utils/file/findFolderByName';
+ 
 
-export function findFoldersByName(baseDir: string, folderName: string): string[] {
-  const results: string[] = [];
-  function search(dir: string) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        if (entry.name.toLowerCase() === folderName.toLowerCase()) {
-          results.push(path.join(dir, entry.name));
-        }
-        search(path.join(dir, entry.name));
-      }
-    }
-  }
-  search(baseDir);
-  return results;
-}
 
 export function capitalize(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -55,7 +41,7 @@ function getTypePromptQuestions(kind: 'enum' | 'interface' | 'class' | 'type'): 
       properties: 'What properties should the class include? (comma-separated): ',
       methods: 'What methods should the class include? (comma-separated): ',
       extends: 'Should this class extend another class? (name or empty): ',
-      implements: 'Should this class implement any interfaces? (comma-separated or empty): '
+      implements: 'Should this class implement  interfaces? (comma-separated or empty): '
     },
     type: {
       properties: 'What properties should the type include? (comma-separated): ',

@@ -25,7 +25,7 @@ async function performBundleAnalysis(config, options) {
     try {
         const { execSync } = require('child_process');
         const projectType = config.projectType;
-        const sizeBudgetKB = parseInt(options.budget, 10);
+        const sizeBudgetKB = parseInt(options.budget || '500', 10);
         // Step 1: Build the project
         console.log(chalk_1.default.blue('Building project for analysis...'));
         const buildCommand = projectType === 'next'
@@ -48,7 +48,12 @@ async function performBundleAnalysis(config, options) {
         checkBundleBudget(bundleResults, sizeBudgetKB);
     }
     catch (error) {
-        console.error(chalk_1.default.red('Bundle analysis failed:'), error.message);
+        if (error instanceof Error) {
+            console.error(chalk_1.default.red('Bundle analysis failed:'), error.message);
+        }
+        else {
+            console.error(chalk_1.default.red('Bundle analysis failed:'), String(error));
+        }
     }
 }
 function parseBundleAnalysis(analysisOutput) {
@@ -90,7 +95,7 @@ function displayBundleReport(results, budget) {
         console.log(chalk_1.default.yellow(`⚠️ Bundle exceeds budget of ${budget} KB by ${(results.totalSize - budget).toFixed(2)} KB`));
         console.log(chalk_1.default.yellow('   Consider code splitting or lazy loading'));
     }
-    if (results.largestDependencies.some((d) => d.size > 100)) {
+    if (results.largestDependencies.some(d => d.size > 100)) {
         console.log(chalk_1.default.yellow('⚠️ Found large dependencies (>100 KB)'));
         console.log(chalk_1.default.yellow('   Review if these can be optimized or replaced'));
     }

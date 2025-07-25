@@ -9,6 +9,7 @@ const chalk_1 = __importDefault(require("chalk"));
 const config_1 = require("../utils/config");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const generative_ai_1 = require("@google/generative-ai");
 function handleConfig(program, rl) {
     program
         .command('config')
@@ -30,8 +31,8 @@ function handleConfig(program, rl) {
         config.aiProvider = 'gemini';
         config.aiModel = 'gemini-1.5-flash-latest';
         config.aiSafetySettings = [
-            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' }
+            { category: generative_ai_1.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: generative_ai_1.HarmBlockThreshold.BLOCK_NONE },
+            { category: generative_ai_1.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: generative_ai_1.HarmBlockThreshold.BLOCK_NONE }
         ];
         fs_1.default.writeFileSync(configPath, JSON.stringify(config, null, 2));
         console.log(chalk_1.default.green('\n✅ AI features enabled'));

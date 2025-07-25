@@ -9,6 +9,7 @@ const path_1 = __importDefault(require("path"));
 const chalk_1 = __importDefault(require("chalk"));
 const prompt_1 = require("./prompt");
 const buildTools_1 = require("./buildTools");
+const generative_ai_1 = require("@google/generative-ai");
 const defaultConfig = {
     baseDir: 'src',
     projectType: 'react',
@@ -20,8 +21,8 @@ const defaultConfig = {
     aiProvider: 'gemini',
     aiModel: 'gemini-1.5-flash-latest',
     aiSafetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' }
+        { category: generative_ai_1.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: generative_ai_1.HarmBlockThreshold.BLOCK_NONE },
+        { category: generative_ai_1.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: generative_ai_1.HarmBlockThreshold.BLOCK_NONE }
     ]
 };
 async function setupConfiguration(rl) {

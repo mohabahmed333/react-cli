@@ -10,7 +10,7 @@ pnpm-lock.yaml
 .next
 out
 .cache
-
+/app
 # Environment files
 .env
 .env.local

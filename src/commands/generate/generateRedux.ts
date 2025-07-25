@@ -13,6 +13,7 @@ import {
   GenerateOptions 
 } from '../../utils/generateAIHelper';
 import { Interface as ReadlineInterface } from 'readline';
+import { findFoldersByName } from '../../utils/file/findFolderByName';
 
 interface ReduxOptions extends GenerateOptions {
   ts?: boolean;
@@ -27,24 +28,7 @@ interface ReduxGenerateOptions {
   aiFeatures: string;
   rl?: ReadlineInterface;
 }
-
-function findFoldersByName(baseDir: string, folderName: string): string[] {
-  const results: string[] = [];
-  function search(dir: string) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        if (entry.name.toLowerCase() === folderName.toLowerCase()) {
-          results.push(path.join(dir, entry.name));
-        }
-        search(path.join(dir, entry.name));
-      }
-    }
-  }
-  search(baseDir);
-  return results;
-}
-
+ 
 export function registerGenerateRedux(generate: Command, rl: ReadlineInterface) {
   generate
     .command('redux [name] [folder]')

@@ -4,6 +4,7 @@ import readline from 'readline';
 import { setupConfiguration } from '../utils/config';
 import fs from 'fs';
 import path from 'path';
+import { HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
 
 export function handleConfig(program: Command, rl: readline.Interface) {
   program
@@ -28,8 +29,8 @@ export function handleConfig(program: Command, rl: readline.Interface) {
       config.aiProvider = 'gemini';
       config.aiModel = 'gemini-1.5-flash-latest';
       config.aiSafetySettings = [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' }
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE }
       ];
       
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
