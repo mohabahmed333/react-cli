@@ -2,9 +2,11 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs';
+import readline from 'readline';
 import { setupConfiguration } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
 import { createFile } from '../../utils/file';
+import { generateWithGemini } from '../../services/gemini-service';
 
 function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -147,9 +149,28 @@ async function createHookInPath(hookName: string, fullPath: string, useTS: boole
       console.log(chalk.yellow(`⚠️ Hook file already exists: ${hookFilePath}`));
       return;
     }
-    const content = useTS
-      ? `import { useState } from 'react';\n\nexport const ${hookName} = (): [boolean, () => void] => {\n  const [state, setState] = useState(false);\n  const toggle = () => setState(!state);\n  return [state, toggle];\n};\n`
-      : `import { useState } from 'react';\n\nexport const ${hookName} = () => {\n  const [state, setState] = useState(false);\n  const toggle = () => setState(!state);\n  return [state, toggle];\n};\n`;
+
+    const config = await setupConfiguration(readline.createInterface({ input: process.stdin, output: process.stdout }));
+    let content = '';
+
+    if (config.aiEnabled) {
+      const prompt = `Create a React hook named ${hookName} in ${useTS ? 'TypeScript' : 'JavaScript'} with JSDoc comments.
+        The hook should follow React best practices and include proper type definitions if using TypeScript.
+        Output ONLY the hook code with no explanations or markdown formatting.`;
+      
+      const aiCode = await generateWithGemini(prompt, config);
+      if (aiCode) {
+        content = aiCode;
+        console.log(chalk.cyan('🧠 Generated hook using AI'));
+      }
+    }
+
+    if (!content) {
+      content = useTS
+        ? `import { useState } from 'react';\n\nexport const ${hookName} = (): [boolean, () => void] => {\n  const [state, setState] = useState(false);\n  const toggle = () => setState(!state);\n  return [state, toggle];\n};\n`
+        : `import { useState } from 'react';\n\nexport const ${hookName} = () => {\n  const [state, setState] = useState(false);\n  const toggle = () => setState(!state);\n  return [state, toggle];\n};\n`;
+    }
+
     fs.writeFileSync(hookFilePath, content);
     console.log(chalk.green(`✅ Created hook: ${hookFilePath}`));
   } catch (error: any) {

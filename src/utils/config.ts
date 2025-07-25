@@ -21,6 +21,13 @@ export interface CLIConfig {
   localization: boolean;
   port?: number;
   docs?: DocsConfig;
+  aiEnabled: boolean;
+  aiProvider?: 'gemini';
+  aiModel?: string;
+  aiSafetySettings?: Array<{
+    category: string;
+    threshold: string;
+  }>;
 }
 
 const defaultConfig: CLIConfig = {
@@ -29,7 +36,14 @@ const defaultConfig: CLIConfig = {
   buildTool: 'vite',
   typescript: false,
   localization: false,
-  port: 5173
+  port: 5173,
+  aiEnabled: false,
+  aiProvider: 'gemini',
+  aiModel: 'gemini-1.5-flash-latest',
+  aiSafetySettings: [
+    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' }
+  ]
 };
 
 export async function setupConfiguration(rl: readline.Interface): Promise<CLIConfig> {
@@ -64,15 +78,19 @@ export async function setupConfiguration(rl: readline.Interface): Promise<CLICon
     config.localization = (await askQuestion(rl, chalk.blue('Use [lang] localization? (y/n): '))) === 'y';
   }
 
-  const customPort = await askQuestion(rl, chalk.blue(`Development server port (${toolConfig.defaultPort}): `));
+  // AI Configuration
+  config.aiEnabled = (await askQuestion(rl, chalk.blue('Enable AI features? (y/n): '))) === 'y';
   
-  if (customPort && !isNaN(parseInt(customPort))) {
-    config.port = parseInt(customPort);
-  } else {
-    config.port = toolConfig.defaultPort;
+  if (config.aiEnabled) {
+    config.aiModel = await askQuestion(rl, chalk.blue('Gemini model (gemini-1.5-flash/gemini-1.5-pro): ')) || 'gemini-1.5-flash-latest';
+    console.log(chalk.yellow('Note: Add GEMINI_API_KEY to .env for AI features'));
+  }
+
+  const customPort = await askQuestion(rl, chalk.blue('Custom dev server port (leave empty for default): '));
+  if (customPort) {
+    config.port = parseInt(customPort, 10);
   }
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-  console.log(chalk.green('✅ Configuration saved'));
   return config;
 }

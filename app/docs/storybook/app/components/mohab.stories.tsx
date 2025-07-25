@@ -1,16 +1,40 @@
-import mohab from '../../../../components/mohab';
+```typescript
+import { Meta, StoryObj } from '@storybook/react';
+import { Mohab } from './Mohab';
 
-export default {
-  title: 'Components/mohab',
-  component: mohab,
+const meta: Meta<typeof Mohab> = {
+  title: 'Example/Mohab',
+  component: Mohab,
+  argTypes: {
+    name: {
+      type: 'string',
+      description: 'The name to display.',
+    },
+  },
 };
 
-const Template = (args) => <mohab {...args} />;
+export default meta;
+type Story = StoryObj<typeof Mohab>;
 
-export const Default = Template.bind({});
+const Template: Story = (args) => <Mohab {...args} />;
+
+export const Default: Story = Template.bind({});
 Default.args = {
-  name: 'Example',
+  name: 'Ali',
 };
 
-export const Empty = Template.bind({});
-Empty.args = {};
+export const Empty: Story = Template.bind({});
+Empty.args = {
+  name: '',
+};
+
+export const WithData: Story = Template.bind({});
+WithData.args = {
+  name: 'Mohamed',
+};
+
+export const WithLongName: Story = Template.bind({});
+WithLongName.args = {
+  name: 'A Very Long Name Indeed',
+};
+```

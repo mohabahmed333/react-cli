@@ -3,6 +3,14 @@ import path from 'path';
 import fs from 'fs';
 import { askQuestion } from '../../utils/prompt';
 import { setupConfiguration } from '../../utils/config';
+import { createFile } from '../../utils/file';
+import { 
+  shouldUseAI, 
+  generateTypeWithAI, 
+  getAIFeatures, 
+  confirmAIOutput 
+} from '../../utils/generateAIHelper';
+import readline from 'readline';
 
 export function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -29,125 +37,198 @@ export function isPascalCase(name: string) {
   return /^[A-Z][a-zA-Z0-9]*$/.test(name);
 }
 
-export async function handleNamedType(kind: 'enum' | 'interface' | 'class', name: string | undefined, folder: string | undefined, options: any, rl: any) {
-  const config = await setupConfiguration(rl);
-  const useTS = config.typescript;
-  let typeName = name;
-  let targetDir: string | undefined = undefined;
-  if (options.interactive) {
-    // 1. Prompt for name
-    typeName = (await askQuestion(rl, chalk.blue(`Enter ${kind} name (PascalCase): `))) || '';
-    if (!isPascalCase(typeName)) {
-      console.log(chalk.red(`❌ ${capitalize(kind)} name must be PascalCase and start with a capital letter`));
-      rl.close();
-      return;
+function getTypePromptQuestions(kind: 'enum' | 'interface' | 'class' | 'type'): { [key: string]: string } {
+  const questions: { [key: string]: { [key: string]: string } } = {
+    enum: {
+      values: 'What values should the enum include? (comma-separated): ',
+      description: 'Add a description for the enum? (optional): ',
+      isNumeric: 'Should this be a numeric enum? (y/n): '
+    },
+    interface: {
+      properties: 'What properties should the interface include? (comma-separated): ',
+      extends: 'Should this interface extend another interface? (name or empty): ',
+      generics: 'Add generic type parameters? (e.g., T, K or empty): '
+    },
+    class: {
+      properties: 'What properties should the class include? (comma-separated): ',
+      methods: 'What methods should the class include? (comma-separated): ',
+      extends: 'Should this class extend another class? (name or empty): ',
+      implements: 'Should this class implement any interfaces? (comma-separated or empty): '
+    },
+    type: {
+      properties: 'What properties should the type include? (comma-separated): ',
+      unions: 'Should this be a union type? List types (comma-separated or empty): ',
+      generics: 'Add generic type parameters? (e.g., T, K or empty): '
     }
-    // 2. Ask if user wants to add to a specific folder
-    const useFolder = await askQuestion(rl, chalk.blue(`Add to a specific folder under app/? (y/n): `));
-    if (useFolder.toLowerCase() === 'y') {
-      // 3. Prompt for folder name
-      const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
-      if (!folderName) {
-        console.log(chalk.red('❌ Folder name required.'));
-        rl.close();
-        return;
-      }
-      if (folderName.includes('/') || folderName.includes('\\')) {
-        targetDir = path.join(config.baseDir, folderName);
-      } else {
-        const baseSearch = path.join(process.cwd(), 'app');
-        const matches = findFoldersByName(baseSearch, folderName);
-        if (matches.length === 0) {
-          const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
-          if (createNew.toLowerCase() !== 'y') {
-            console.log(chalk.yellow(`⏩ ${capitalize(kind)} creation cancelled`));
-            rl.close();
-            return;
-          }
-          targetDir = path.join(baseSearch, folderName);
-          fs.mkdirSync(targetDir, { recursive: true });
-          console.log(chalk.green(`📁 Created directory: ${targetDir}`));
-        } else if (matches.length === 1) {
-          targetDir = matches[0];
-        } else {
-          let chosen = matches[0];
-          console.log(chalk.yellow('Multiple folders found:'));
-          matches.forEach((m, i) => console.log(`${i + 1}: ${m}`));
-          const idx = await askQuestion(rl, chalk.blue('Select folder number: '));
-          const num = parseInt(idx, 10);
-          if (!isNaN(num) && num >= 1 && num <= matches.length) {
-            chosen = matches[num - 1];
-          } else {
-            console.log(chalk.red('Invalid selection. Creation cancelled.'));
-            rl.close();
-            return;
-          }
-          targetDir = chosen;
-        }
-      }
-    } else {
-      targetDir = path.join(config.baseDir, 'types');
-    }
-    await createNamedTypeInPath(kind, typeName, targetDir, options.replace);
-    rl.close();
-    return;
-  }
-  // Non-interactive mode (legacy)
-  if (!typeName) {
-    console.log(chalk.red(`❌ ${capitalize(kind)} name is required.`));
-    rl.close();
-    return;
-  }
-  if (!isPascalCase(typeName)) {
-    console.log(chalk.red(`❌ ${capitalize(kind)} name must be PascalCase and start with a capital letter`));
-    rl.close();
-    return;
-  }
-  if (folder) {
-    if (folder.includes('/') || folder.includes('\\')) {
-      targetDir = path.join(config.baseDir, folder);
-    } else {
-      const baseSearch = path.join(process.cwd(), 'app');
-      const matches = findFoldersByName(baseSearch, folder);
-      if (matches.length === 0) {
-        console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
-        rl.close();
-        return;
-      } else if (matches.length === 1) {
-        targetDir = matches[0];
-      } else {
-        targetDir = matches[0]; // Default to first match
-      }
-    }
-    await createNamedTypeInPath(kind, typeName, targetDir, options.replace);
-  } else {
-    targetDir = path.join(config.baseDir, 'types');
-    await createNamedTypeInPath(kind, typeName, targetDir, options.replace);
-  }
-  rl.close();
+  };
+  return questions[kind] || {};
 }
 
-export async function createNamedTypeInPath(kind: 'enum' | 'interface' | 'class', typeName: string, fullPath: string, replace = false) {
+async function getTypeFeatures(rl: readline.Interface, kind: 'enum' | 'interface' | 'class' | 'type', name: string): Promise<string> {
+  const questions = getTypePromptQuestions(kind);
+  const features: string[] = [];
+
+  console.log(chalk.cyan(`\n📝 ${capitalize(kind)} Configuration for ${name}`));
+  console.log(chalk.dim('======================'));
+
+  for (const [key, question] of Object.entries(questions)) {
+    const answer = await askQuestion(rl, chalk.blue(question));
+    if (answer.trim()) {
+      features.push(`${key}: ${answer}`);
+    }
+  }
+
+  return features.join(', ');
+}
+
+export async function handleNamedType(kind: 'enum' | 'interface' | 'class', name: string | undefined, folder: string | undefined, options: any, rl: any) {
+  try {
+    console.log(chalk.cyan(`\n📝 ${capitalize(kind)} Generator`));
+    console.log(chalk.dim('======================'));
+
+    const config = await setupConfiguration(rl);
+    let typeName = name;
+    let targetDir: string | undefined = undefined;
+    let useAI = false;
+    let aiFeatures = '';
+
+    if (options.interactive) {
+      // 1. Prompt for name
+      typeName = (await askQuestion(rl, chalk.blue(`Enter ${kind} name (PascalCase): `))) || '';
+      if (!isPascalCase(typeName)) {
+        console.log(chalk.red(`❌ ${capitalize(kind)} name must be PascalCase and start with a capital letter`));
+        return;
+      }
+
+      // Ask about AI usage if enabled
+      if (config.aiEnabled) {
+        useAI = await shouldUseAI(rl, options, config);
+        if (useAI) {
+          // Get specific features based on type kind
+          aiFeatures = await getTypeFeatures(rl, kind, typeName);
+        }
+      }
+
+      // 2. Ask if user wants to add to a specific folder
+      const useFolder = await askQuestion(rl, chalk.blue(`Add to a specific folder under app/? (y/n): `));
+      if (useFolder.toLowerCase() === 'y') {
+        // 3. Prompt for folder name
+        const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
+        if (!folderName) {
+          console.log(chalk.red('❌ Folder name required.'));
+          return;
+        }
+        if (folderName.includes('/') || folderName.includes('\\')) {
+          targetDir = path.join(config.baseDir, folderName);
+        } else {
+          const baseSearch = path.join(process.cwd(), 'app');
+          const matches = findFoldersByName(baseSearch, folderName);
+          if (matches.length === 0) {
+            const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
+            if (createNew.toLowerCase() !== 'y') {
+              console.log(chalk.yellow(`⏩ ${capitalize(kind)} creation cancelled`));
+              return;
+            }
+            targetDir = path.join(baseSearch, folderName);
+            fs.mkdirSync(targetDir, { recursive: true });
+            console.log(chalk.green(`📁 Created directory: ${targetDir}`));
+          } else if (matches.length === 1) {
+            targetDir = matches[0];
+          } else {
+            let chosen = matches[0];
+            console.log(chalk.yellow('Multiple folders found:'));
+            matches.forEach((m, i) => console.log(`${i + 1}: ${m}`));
+            const idx = await askQuestion(rl, chalk.blue('Select folder number: '));
+            const num = parseInt(idx, 10);
+            if (!isNaN(num) && num >= 1 && num <= matches.length) {
+              chosen = matches[num - 1];
+            } else {
+              console.log(chalk.red('Invalid selection. Creation cancelled.'));
+              return;
+            }
+            targetDir = chosen;
+          }
+        }
+      } else {
+        targetDir = path.join(config.baseDir, 'types');
+      }
+    } else {
+      // Non-interactive mode (legacy)
+      if (!typeName) {
+        console.log(chalk.red(`❌ ${capitalize(kind)} name is required.`));
+        return;
+      }
+      if (!isPascalCase(typeName)) {
+        console.log(chalk.red(`❌ ${capitalize(kind)} name must be PascalCase and start with a capital letter`));
+        return;
+      }
+      if (folder) {
+        if (folder.includes('/') || folder.includes('\\')) {
+          targetDir = path.join(config.baseDir, folder);
+        } else {
+          const baseSearch = path.join(process.cwd(), 'app');
+          const matches = findFoldersByName(baseSearch, folder);
+          if (matches.length === 0) {
+            console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
+            return;
+          } else if (matches.length === 1) {
+            targetDir = matches[0];
+          } else {
+            targetDir = matches[0]; // Default to first match
+          }
+        }
+      } else {
+        targetDir = path.join(config.baseDir, 'types');
+      }
+      useAI = await shouldUseAI(rl, options, config);
+    }
+
+    await createNamedTypeInPath(kind, typeName, targetDir, { ...options, useAI, aiFeatures, config, rl });
+  } catch (error) {
+    console.error(chalk.red(`❌ Error generating ${kind}:`), error);
+  } finally {
+    rl.close();
+  }
+}
+
+export async function createNamedTypeInPath(kind: 'enum' | 'interface' | 'class', typeName: string, fullPath: string, options: any = {}) {
   try {
     if (!fs.existsSync(fullPath)) {
       fs.mkdirSync(fullPath, { recursive: true });
       console.log(chalk.green(`📁 Created directory: ${fullPath}`));
     }
+
     let filePath = path.join(fullPath, `${typeName}.${kind}.ts`);
-    if (fs.existsSync(filePath) && !replace) {
-      console.log(chalk.yellow(`⚠️ ${capitalize(kind)} file already exists: ${filePath}`));
-      return;
-    }
     let content = '';
-    if (kind === 'enum') {
-      content = `export enum ${typeName} {\n  // Add enum members here\n  Example = 'EXAMPLE'\n}\n`;
-    } else if (kind === 'interface') {
-      content = `export interface ${typeName} {\n  // Add properties here\n}\n`;
-    } else if (kind === 'class') {
-      content = `export class ${typeName} {\n  // Add properties and methods here\n  constructor() {\n    // ...\n  }\n}\n`;
+
+    if (options.useAI && options.config) {
+      const aiContent = await generateTypeWithAI(typeName, options.config, {
+        kind,
+        features: options.aiFeatures
+      });
+
+      if (aiContent && (!fs.existsSync(filePath) || options.replace)) {
+        if (await confirmAIOutput(options.rl, aiContent)) {
+          content = aiContent;
+        }
+      }
     }
-    fs.writeFileSync(filePath, content);
-    console.log(chalk.green(`✅ Created ${capitalize(kind)}: ${filePath}`));
+
+    if (!content) {
+      if (kind === 'enum') {
+        content = `export enum ${typeName} {\n  // Add enum members here\n  Example = 'EXAMPLE'\n}\n`;
+      } else if (kind === 'interface') {
+        content = `export interface ${typeName} {\n  // Add properties here\n}\n`;
+      } else if (kind === 'class') {
+        content = `export class ${typeName} {\n  // Add properties and methods here\n  constructor() {\n    // ...\n  }\n}\n`;
+      }
+    }
+
+    if (createFile(filePath, content, options.replace)) {
+      console.log(chalk.green(`✅ Created ${capitalize(kind)}: ${filePath}`));
+    } else {
+      console.log(chalk.yellow(`⚠️ ${capitalize(kind)} exists: ${filePath} (use --replace to overwrite)`));
+    }
   } catch (error: any) {
     console.log(chalk.red(`❌ Error creating ${kind}:`));
     console.error(chalk.red(error.message));
@@ -160,114 +241,145 @@ export async function createNamedTypeInPath(kind: 'enum' | 'interface' | 'class'
 }
 
 export async function handleTypeLegacy(name: string | undefined, folder: string | undefined, options: any, rl: any) {
-  const config = await setupConfiguration(rl);
-  const useTS = config.typescript;
-  let typeName = name;
-  let targetDir: string | undefined = undefined;
-  if (options.interactive) {
-    typeName = (await askQuestion(rl, chalk.blue('Enter type name (PascalCase): '))) || '';
-    if (!/^[A-Z][a-zA-Z0-9]*$/.test(typeName)) {
-      console.log(chalk.red('❌ Type name must be PascalCase and start with a capital letter'));
-      rl.close();
-      return;
-    }
-    const useFolder = await askQuestion(rl, chalk.blue('Add to a specific folder under app/? (y/n): '));
-    if (useFolder.toLowerCase() === 'y') {
-      const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
-      if (!folderName) {
-        console.log(chalk.red('❌ Folder name required.'));
-        rl.close();
+  try {
+    console.log(chalk.cyan('\n📝 Type Generator'));
+    console.log(chalk.dim('======================'));
+
+    const config = await setupConfiguration(rl);
+    let typeName = name;
+    let targetDir: string | undefined = undefined;
+    let useAI = false;
+    let aiFeatures = '';
+
+    if (options.interactive) {
+      typeName = (await askQuestion(rl, chalk.blue('Enter type name (PascalCase): '))) || '';
+      if (!/^[A-Z][a-zA-Z0-9]*$/.test(typeName)) {
+        console.log(chalk.red('❌ Type name must be PascalCase and start with a capital letter'));
         return;
       }
-      if (folderName.includes('/') || folderName.includes('\\')) {
-        targetDir = path.join(config.baseDir, folderName);
-      } else {
-        const baseSearch = path.join(process.cwd(), 'app');
-        const matches = findFoldersByName(baseSearch, folderName);
-        if (matches.length === 0) {
-          const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
-          if (createNew.toLowerCase() !== 'y') {
-            console.log(chalk.yellow('⏩ Type creation cancelled'));
-            rl.close();
-            return;
-          }
-          targetDir = path.join(baseSearch, folderName);
-          fs.mkdirSync(targetDir, { recursive: true });
-          console.log(chalk.green(`📁 Created directory: ${targetDir}`));
-        } else if (matches.length === 1) {
-          targetDir = matches[0];
-        } else {
-          let chosen = matches[0];
-          console.log(chalk.yellow('Multiple folders found:'));
-          matches.forEach((m, i) => console.log(`${i + 1}: ${m}`));
-          const idx = await askQuestion(rl, chalk.blue('Select folder number: '));
-          const num = parseInt(idx, 10);
-          if (!isNaN(num) && num >= 1 && num <= matches.length) {
-            chosen = matches[num - 1];
-          } else {
-            console.log(chalk.red('Invalid selection. Type creation cancelled.'));
-            rl.close();
-            return;
-          }
-          targetDir = chosen;
+
+      // Ask about AI usage if enabled
+      if (config.aiEnabled) {
+        useAI = await shouldUseAI(rl, options, config);
+        if (useAI) {
+          // Get specific features for type
+          aiFeatures = await getTypeFeatures(rl, 'type', typeName);
         }
       }
-    } else {
-      targetDir = path.join(config.baseDir, 'types');
-    }
-    await createTypeLegacyInPath(typeName, targetDir, options.replace);
-    rl.close();
-    return;
-  }
-  // Non-interactive mode (legacy)
-  if (!typeName) {
-    console.log(chalk.red('❌ Type name is required.'));
-    rl.close();
-    return;
-  }
-  if (!/^[A-Z][a-zA-Z0-9]*$/.test(typeName)) {
-    console.log(chalk.red('❌ Type name must be PascalCase and start with a capital letter'));
-    rl.close();
-    return;
-  }
-  if (folder) {
-    if (folder.includes('/') || folder.includes('\\')) {
-      targetDir = path.join(config.baseDir, folder);
-    } else {
-      const baseSearch = path.join(process.cwd(), 'app');
-      const matches = findFoldersByName(baseSearch, folder);
-      if (matches.length === 0) {
-        console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
-        rl.close();
-        return;
-      } else if (matches.length === 1) {
-        targetDir = matches[0];
+
+      // 2. Ask if user wants to add to a specific folder
+      const useFolder = await askQuestion(rl, chalk.blue('Add to a specific folder under app/? (y/n): '));
+      if (useFolder.toLowerCase() === 'y') {
+        // 3. Prompt for folder name
+        const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
+        if (!folderName) {
+          console.log(chalk.red('❌ Folder name required.'));
+          return;
+        }
+        if (folderName.includes('/') || folderName.includes('\\')) {
+          targetDir = path.join(config.baseDir, folderName);
+        } else {
+          const baseSearch = path.join(process.cwd(), 'app');
+          const matches = findFoldersByName(baseSearch, folderName);
+          if (matches.length === 0) {
+            const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
+            if (createNew.toLowerCase() !== 'y') {
+              console.log(chalk.yellow('⏩ Type creation cancelled'));
+              return;
+            }
+            targetDir = path.join(baseSearch, folderName);
+            fs.mkdirSync(targetDir, { recursive: true });
+            console.log(chalk.green(`📁 Created directory: ${targetDir}`));
+          } else if (matches.length === 1) {
+            targetDir = matches[0];
+          } else {
+            let chosen = matches[0];
+            console.log(chalk.yellow('Multiple folders found:'));
+            matches.forEach((m, i) => console.log(`${i + 1}: ${m}`));
+            const idx = await askQuestion(rl, chalk.blue('Select folder number: '));
+            const num = parseInt(idx, 10);
+            if (!isNaN(num) && num >= 1 && num <= matches.length) {
+              chosen = matches[num - 1];
+            } else {
+              console.log(chalk.red('Invalid selection. Type creation cancelled.'));
+              return;
+            }
+            targetDir = chosen;
+          }
+        }
       } else {
-        targetDir = matches[0]; // Default to first match
+        targetDir = path.join(config.baseDir, 'types');
       }
+    } else {
+      // Non-interactive mode (legacy)
+      if (!typeName) {
+        console.log(chalk.red('❌ Type name is required.'));
+        return;
+      }
+      if (!/^[A-Z][a-zA-Z0-9]*$/.test(typeName)) {
+        console.log(chalk.red('❌ Type name must be PascalCase and start with a capital letter'));
+        return;
+      }
+      if (folder) {
+        if (folder.includes('/') || folder.includes('\\')) {
+          targetDir = path.join(config.baseDir, folder);
+        } else {
+          const baseSearch = path.join(process.cwd(), 'app');
+          const matches = findFoldersByName(baseSearch, folder);
+          if (matches.length === 0) {
+            console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
+            return;
+          } else if (matches.length === 1) {
+            targetDir = matches[0];
+          } else {
+            targetDir = matches[0]; // Default to first match
+          }
+        }
+      } else {
+        targetDir = path.join(config.baseDir, 'types');
+      }
+      useAI = await shouldUseAI(rl, options, config);
     }
-    await createTypeLegacyInPath(typeName, targetDir, options.replace);
-  } else {
-    targetDir = path.join(config.baseDir, 'types');
-    await createTypeLegacyInPath(typeName, targetDir, options.replace);
+
+    await createTypeLegacyInPath(typeName, targetDir, { ...options, useAI, aiFeatures, config, rl });
+  } catch (error) {
+    console.error(chalk.red('❌ Error generating type:'), error);
+  } finally {
+    rl.close();
   }
-  rl.close();
 }
 
-export async function createTypeLegacyInPath(typeName: string, fullPath: string, replace = false) {
+export async function createTypeLegacyInPath(typeName: string, fullPath: string, options: any = {}) {
   try {
     if (!fs.existsSync(fullPath)) {
       fs.mkdirSync(fullPath, { recursive: true });
       console.log(chalk.green(`📁 Created directory: ${fullPath}`));
     }
+
     const typeFilePath = path.join(fullPath, `${typeName}.types.ts`);
-    if (fs.existsSync(typeFilePath) && !replace) {
-      console.log(chalk.yellow(`⚠️ Type file already exists: ${typeFilePath}`));
-      return;
+    let content = '';
+
+    if (options.useAI && options.config) {
+      const aiContent = await generateTypeWithAI(typeName, options.config, {
+        features: options.aiFeatures
+      });
+
+      if (aiContent && (!fs.existsSync(typeFilePath) || options.replace)) {
+        if (await confirmAIOutput(options.rl, aiContent)) {
+          content = aiContent;
+        }
+      }
     }
-    const content = `export interface ${typeName} {\n  // Add properties here\n}\n\nexport type ${typeName}Type = {\n  id: string;\n  name: string;\n};\n`;
-    fs.writeFileSync(typeFilePath, content);
-    console.log(chalk.green(`✅ Created type: ${typeFilePath}`));
+
+    if (!content) {
+      content = `export interface ${typeName} {\n  // Add properties here\n}\n\nexport type ${typeName}Type = {\n  id: string;\n  name: string;\n};\n`;
+    }
+
+    if (createFile(typeFilePath, content, options.replace)) {
+      console.log(chalk.green(`✅ Created type: ${typeFilePath}`));
+    } else {
+      console.log(chalk.yellow(`⚠️ Type exists: ${typeFilePath} (use --replace to overwrite)`));
+    }
   } catch (error: any) {
     console.log(chalk.red('❌ Error creating type:'));
     console.error(chalk.red(error.message));

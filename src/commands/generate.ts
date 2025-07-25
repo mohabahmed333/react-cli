@@ -16,15 +16,13 @@ import { registerGenerateHook } from './generate/generateHook';
 import { registerGenerateUtil } from './generate/generateUtil';
 import { registerGenerateType } from './generate/generateType';
 import { registerGeneratePage } from './generate/generatePage';
-import { registerGenerateContext } from './generate/generateContext';
-import { registerGenerateRedux } from './generate/generateRedux';
+ import { registerGenerateRedux } from './generate/generateRedux';
 import { registerGenerateService } from './generate/generateService';
- 
+
  
 export function handleGenerate(program: Command, rl: readline.Interface) {
   const generate = program.command('g').description('Generators for common React patterns');
-  registerGenerateGuard(generate, rl);
-  registerGenerateLayout(generate, rl);
+ 
   registerGenerateHoc(generate, rl);
   registerGenerateRoutes(generate, rl);
   registerGenerateServiceWorker(generate, rl);
@@ -36,7 +34,7 @@ export function handleGenerate(program: Command, rl: readline.Interface) {
   registerGenerateUtil(generate, rl);
   registerGenerateType(generate, rl);
   registerGeneratePage(generate, rl);
-  registerGenerateContext(generate, rl);
+  // registerGenerateContext(generate, rl);
   registerGenerateRedux(generate, rl);
   registerGenerateService(generate, rl);
 }

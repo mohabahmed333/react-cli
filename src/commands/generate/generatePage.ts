@@ -5,6 +5,12 @@ import fs from 'fs';
 import { setupConfiguration } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
 import { createFile, createFolder } from '../../utils/file';
+import {
+  shouldUseAI,
+  generatePageWithAI,
+  getAIFeatures,
+  confirmAIOutput
+} from '../../utils/generateAIHelper';
 
 function findFoldersByName(baseDir: string, folderName: string): string[] {
   const results: string[] = [];
@@ -23,7 +29,7 @@ function findFoldersByName(baseDir: string, folderName: string): string[] {
   return results;
 }
 
-function createPage(name: string, options: any, config: any) {
+async function createPage(name: string, options: any, config: any) {
   const ext = config.typescript ? 'tsx' : 'jsx';
   const basePath = config.projectType === 'next'
     ? `${config.baseDir}/pages/${config.localization ? '[lang]/' : ''}${name}`
@@ -45,10 +51,47 @@ function createPage(name: string, options: any, config: any) {
     createFile(`${config.baseDir}/types/${name}.types.ts`, typeContent);
   }
   createFolder(basePath);
-  const pageContent = config.typescript
-    ? `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\ninterface ${name}Props {}\n\nconst ${name}: React.FC<${name}Props> = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${name} Page</h1>\n    </div>\n  );\n};\n\nexport default ${name};\n`
-    : `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\nconst ${name} = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${name} Page</h1>\n    </div>\n  );\n};\n\nexport default ${name};\n`;
-  createFile(`${basePath}/${name}.${ext}`, pageContent);
+
+  // Create necessary folders
+  createFolder(basePath);
+  if (options.components) {
+    createFolder(`${basePath}/components`);
+  }
+  if (options.lib) {
+    createFolder(`${basePath}/lib`);
+  }
+
+  // Generate page content
+  let pageContent = '';
+  if (options.useAI && config) {
+    const aiContent = await generatePageWithAI(name, config, {
+      features: options.aiFeatures,
+      css: options.css,
+      components: options.components,
+      lib: options.lib
+    });
+
+    if (aiContent && (!fs.existsSync(`${basePath}/${name}.${ext}`) || options.replace)) {
+      if (await confirmAIOutput(options.rl, aiContent)) {
+        pageContent = aiContent;
+      }
+    }
+  }
+
+  if (!pageContent) {
+    pageContent = config.typescript
+      ? `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\ninterface ${name}Props {}\n\nconst ${name}: React.FC<${name}Props> = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${name} Page</h1>\n    </div>\n  );\n};\n\nexport default ${name};\n`
+      : `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\nconst ${name} = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${name} Page</h1>\n    </div>\n  );\n};\n\nexport default ${name};\n`;
+  }
+
+  // Create files
+  if (createFile(`${basePath}/${name}.${ext}`, pageContent, options.replace)) {
+    console.log(chalk.green(`✅ Created page: ${basePath}/${name}.${ext}`));
+  } else {
+    console.log(chalk.yellow(`⚠️ Page exists: ${basePath}/${name}.${ext} (use --replace to overwrite)`));
+  }
+
+  // Create additional files
   if (options.css) {
     createFile(`${basePath}/${name}.module.css`, `.container {\n  padding: 20px;\n}\n`);
   }
@@ -93,104 +136,130 @@ export function registerGeneratePage(generate: Command, rl: any) {
     .option('--types', 'Include TypeScript types')
     .option('--layout', 'Include layout file')
     .option('-i, --interactive', 'Use interactive mode for page and folder selection')
+    .option('--ai', 'Use AI to generate the page code')
     .action(async (name: string | undefined, folder: string | undefined, options: any) => {
-      const config = await setupConfiguration(rl);
-      let pageName = name;
-      let targetDir: string | undefined = undefined;
-      if (options.interactive) {
-        // 1. Prompt for page name
-        pageName = (await askQuestion(rl, chalk.blue('Enter page name (PascalCase): '))) || '';
+      try {
+        console.log(chalk.cyan('\n📄 Page Generator'));
+        console.log(chalk.dim('======================'));
+
+        const config = await setupConfiguration(rl);
+        let pageName = name;
+        let targetDir: string | undefined = undefined;
+        let useAI = false;
+        let aiFeatures = '';
+
+        if (options.interactive) {
+          // 1. Prompt for page name
+          pageName = (await askQuestion(rl, chalk.blue('Enter page name (PascalCase): '))) || '';
+          if (!/^[A-Z][a-zA-Z0-9]*$/.test(pageName)) {
+            console.log(chalk.red('❌ Page name must be PascalCase and start with a capital letter'));
+            return;
+          }
+
+          // Ask about AI usage if enabled
+          if (config.aiEnabled) {
+            useAI = await shouldUseAI(rl, options, config);
+            if (useAI) {
+              console.log(chalk.cyan('\n📝 Page Configuration'));
+              options.css = (await askQuestion(rl, chalk.blue('Include CSS module? (y/n): '))) === 'y';
+              options.components = (await askQuestion(rl, chalk.blue('Include components folder? (y/n): '))) === 'y';
+              options.lib = (await askQuestion(rl, chalk.blue('Include lib utilities? (y/n): '))) === 'y';
+
+              console.log(chalk.cyan('\nDescribe additional features (e.g., "data fetching, form handling, authentication"):'));
+              aiFeatures = await getAIFeatures(rl, 'Page');
+            }
+          }
+
+          // 2. Ask if user wants to add to a specific folder
+          const useFolder = await askQuestion(rl, chalk.blue('Add to a specific folder under app/? (y/n): '));
+          if (useFolder.toLowerCase() === 'y') {
+            // 3. Prompt for folder name
+            const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
+            if (!folderName) {
+              console.log(chalk.red('❌ Folder name required.'));
+              rl.close();
+              return;
+            }
+            if (folderName.includes('/') || folderName.includes('\\')) {
+              targetDir = path.join(config.baseDir, folderName);
+            } else {
+              const baseSearch = path.join(process.cwd(), 'app');
+              const matches = findFoldersByName(baseSearch, folderName);
+              if (matches.length === 0) {
+                const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
+                if (createNew.toLowerCase() !== 'y') {
+                  console.log(chalk.yellow('⏩ Page creation cancelled'));
+                  rl.close();
+                  return;
+                }
+                targetDir = path.join(baseSearch, folderName);
+                fs.mkdirSync(targetDir, { recursive: true });
+                console.log(chalk.green(`📁 Created directory: ${targetDir}`));
+              } else if (matches.length === 1) {
+                targetDir = matches[0];
+              } else {
+                let chosen = matches[0];
+                console.log(chalk.yellow('Multiple folders found:'));
+                matches.forEach((m, i) => console.log(`${i + 1}: ${m}`));
+                const idx = await askQuestion(rl, chalk.blue('Select folder number: '));
+                const num = parseInt(idx, 10);
+                if (!isNaN(num) && num >= 1 && num <= matches.length) {
+                  chosen = matches[num - 1];
+                } else {
+                  console.log(chalk.red('Invalid selection. Page creation cancelled.'));
+                  rl.close();
+                  return;
+                }
+                targetDir = chosen;
+              }
+            }
+          } else {
+            targetDir = path.join(config.baseDir, 'pages');
+          }
+          // Use the same options as before, but override the base path
+          const customConfig = { ...config };
+          customConfig.baseDir = targetDir;
+          await createPage(pageName, options, customConfig);
+          rl.close();
+          return;
+        }
+        // Non-interactive mode (legacy)
+        if (!pageName) {
+          console.log(chalk.red('❌ Page name is required.'));
+          rl.close();
+          return;
+        }
         if (!/^[A-Z][a-zA-Z0-9]*$/.test(pageName)) {
           console.log(chalk.red('❌ Page name must be PascalCase and start with a capital letter'));
           rl.close();
           return;
         }
-        // 2. Ask if user wants to add to a specific folder
-        const useFolder = await askQuestion(rl, chalk.blue('Add to a specific folder under app/? (y/n): '));
-        if (useFolder.toLowerCase() === 'y') {
-          // 3. Prompt for folder name
-          const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
-          if (!folderName) {
-            console.log(chalk.red('❌ Folder name required.'));
-            rl.close();
-            return;
-          }
-          if (folderName.includes('/') || folderName.includes('\\')) {
-            targetDir = path.join(config.baseDir, folderName);
+        if (folder) {
+          if (folder.includes('/') || folder.includes('\\')) {
+            targetDir = path.join(config.baseDir, folder);
           } else {
             const baseSearch = path.join(process.cwd(), 'app');
-            const matches = findFoldersByName(baseSearch, folderName);
+            const matches = findFoldersByName(baseSearch, folder);
             if (matches.length === 0) {
-              const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
-              if (createNew.toLowerCase() !== 'y') {
-                console.log(chalk.yellow('⏩ Page creation cancelled'));
-                rl.close();
-                return;
-              }
-              targetDir = path.join(baseSearch, folderName);
-              fs.mkdirSync(targetDir, { recursive: true });
-              console.log(chalk.green(`📁 Created directory: ${targetDir}`));
+              console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
+              rl.close();
+              return;
             } else if (matches.length === 1) {
               targetDir = matches[0];
             } else {
-              let chosen = matches[0];
-              console.log(chalk.yellow('Multiple folders found:'));
-              matches.forEach((m, i) => console.log(`${i + 1}: ${m}`));
-              const idx = await askQuestion(rl, chalk.blue('Select folder number: '));
-              const num = parseInt(idx, 10);
-              if (!isNaN(num) && num >= 1 && num <= matches.length) {
-                chosen = matches[num - 1];
-              } else {
-                console.log(chalk.red('Invalid selection. Page creation cancelled.'));
-                rl.close();
-                return;
-              }
-              targetDir = chosen;
+              targetDir = matches[0]; // Default to first match
             }
           }
+          const customConfig = { ...config };
+          customConfig.baseDir = targetDir;
+          await createPage(pageName, options, customConfig);
         } else {
-          targetDir = path.join(config.baseDir, 'pages');
+          await createPage(pageName, options, config);
         }
-        // Use the same options as before, but override the base path
-        const customConfig = { ...config };
-        customConfig.baseDir = targetDir;
-        createPage(pageName, options, customConfig);
         rl.close();
-        return;
-      }
-      // Non-interactive mode (legacy)
-      if (!pageName) {
-        console.log(chalk.red('❌ Page name is required.'));
+      } catch (error) {
+        console.error(chalk.red('❌ Error generating page:'), error);
         rl.close();
-        return;
       }
-      if (!/^[A-Z][a-zA-Z0-9]*$/.test(pageName)) {
-        console.log(chalk.red('❌ Page name must be PascalCase and start with a capital letter'));
-        rl.close();
-        return;
-      }
-      if (folder) {
-        if (folder.includes('/') || folder.includes('\\')) {
-          targetDir = path.join(config.baseDir, folder);
-        } else {
-          const baseSearch = path.join(process.cwd(), 'app');
-          const matches = findFoldersByName(baseSearch, folder);
-          if (matches.length === 0) {
-            console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
-            rl.close();
-            return;
-          } else if (matches.length === 1) {
-            targetDir = matches[0];
-          } else {
-            targetDir = matches[0]; // Default to first match
-          }
-        }
-        const customConfig = { ...config };
-        customConfig.baseDir = targetDir;
-        createPage(pageName, options, customConfig);
-      } else {
-        createPage(pageName, options, config);
-      }
-      rl.close();
     });
 } 

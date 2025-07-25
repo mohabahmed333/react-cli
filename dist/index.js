@@ -17,21 +17,36 @@ const bundleCheck_1 = require("./commands/bundleCheck");
 const libraries_1 = require("./commands/libraries");
 const Operation_1 = require("./commands/operations/Operation");
 const docs_1 = require("./commands/docs");
+const ai_1 = require("./commands/ai");
 const program = new commander_1.Command();
-const rl = readline_1.default.createInterface({ input: process.stdin, output: process.stdout });
+// Create a single readline interface
+const rl = readline_1.default.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: true
+});
+// Handle cleanup
+const cleanup = () => {
+    rl.close();
+    process.exit(0);
+};
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+// Register commands with the same readline interface
 (0, a11yScan_1.handleA11yScan)(program, rl);
 (0, libraries_1.handleLibraries)(program, rl);
 (0, global_1.handleGlobal)(program, rl);
 (0, config_1.handleConfig)(program, rl);
 (0, config_1.handleInit)(program, rl);
 (0, help_1.handleHelp)(program, rl);
-(0, docs_1.registerDocsCommand)(program, rl);
 (0, deps_1.handleDeps)(program, rl);
 (0, generate_1.handleGenerate)(program, rl);
 (0, bundleCheck_1.handleBundleCheck)(program, rl);
 (0, Operation_1.registerOperation)(program, rl);
+(0, docs_1.registerDocsCommand)(program, rl);
+(0, ai_1.setupAICommands)(program, rl); // Update this to accept rl
+// Parse arguments
 program.parseAsync(process.argv).catch((err) => {
     console.error(chalk_1.default.red('Error:'), err);
-    rl.close();
-    process.exit(1);
+    cleanup();
 });

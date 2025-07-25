@@ -1,8 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleGenerate = handleGenerate;
-const generateGuard_1 = require("./generate/generateGuard");
-const generateLayout_1 = require("./generate/generateLayout");
 const generateHoc_1 = require("./generate/generateHoc");
 const generateRoutes_1 = require("./generate/generateRoutes");
 const generateServiceWorker_1 = require("./generate/generateServiceWorker");
@@ -14,13 +12,10 @@ const generateHook_1 = require("./generate/generateHook");
 const generateUtil_1 = require("./generate/generateUtil");
 const generateType_1 = require("./generate/generateType");
 const generatePage_1 = require("./generate/generatePage");
-const generateContext_1 = require("./generate/generateContext");
 const generateRedux_1 = require("./generate/generateRedux");
 const generateService_1 = require("./generate/generateService");
 function handleGenerate(program, rl) {
     const generate = program.command('g').description('Generators for common React patterns');
-    (0, generateGuard_1.registerGenerateGuard)(generate, rl);
-    (0, generateLayout_1.registerGenerateLayout)(generate, rl);
     (0, generateHoc_1.registerGenerateHoc)(generate, rl);
     (0, generateRoutes_1.registerGenerateRoutes)(generate, rl);
     (0, generateServiceWorker_1.registerGenerateServiceWorker)(generate, rl);
@@ -32,7 +27,7 @@ function handleGenerate(program, rl) {
     (0, generateUtil_1.registerGenerateUtil)(generate, rl);
     (0, generateType_1.registerGenerateType)(generate, rl);
     (0, generatePage_1.registerGeneratePage)(generate, rl);
-    (0, generateContext_1.registerGenerateContext)(generate, rl);
+    // registerGenerateContext(generate, rl);
     (0, generateRedux_1.registerGenerateRedux)(generate, rl);
     (0, generateService_1.registerGenerateService)(generate, rl);
 }

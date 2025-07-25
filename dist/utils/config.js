@@ -15,7 +15,14 @@ const defaultConfig = {
     buildTool: 'vite',
     typescript: false,
     localization: false,
-    port: 5173
+    port: 5173,
+    aiEnabled: false,
+    aiProvider: 'gemini',
+    aiModel: 'gemini-1.5-flash-latest',
+    aiSafetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' }
+    ]
 };
 async function setupConfiguration(rl) {
     const configPath = path_1.default.join(process.cwd(), 'create.config.json');
@@ -43,14 +50,16 @@ async function setupConfiguration(rl) {
         config.buildTool = 'next';
         config.localization = (await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Use [lang] localization? (y/n): '))) === 'y';
     }
-    const customPort = await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue(`Development server port (${toolConfig.defaultPort}): `));
-    if (customPort && !isNaN(parseInt(customPort))) {
-        config.port = parseInt(customPort);
+    // AI Configuration
+    config.aiEnabled = (await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Enable AI features? (y/n): '))) === 'y';
+    if (config.aiEnabled) {
+        config.aiModel = await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Gemini model (gemini-1.5-flash/gemini-1.5-pro): ')) || 'gemini-1.5-flash-latest';
+        console.log(chalk_1.default.yellow('Note: Add GEMINI_API_KEY to .env for AI features'));
     }
-    else {
-        config.port = toolConfig.defaultPort;
+    const customPort = await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Custom dev server port (leave empty for default): '));
+    if (customPort) {
+        config.port = parseInt(customPort, 10);
     }
     fs_1.default.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    console.log(chalk_1.default.green('✅ Configuration saved'));
     return config;
 }
