@@ -5,6 +5,14 @@ import { askQuestion } from './prompt';
 import readline from 'readline';
 import { buildTools, getBuildToolConfig } from './buildTools';
 
+export interface DocsConfig {
+  outputDir?: string;
+  formats?: string[];
+  theme?: string;
+  include?: string[];
+  exclude?: string[];
+}
+
 export interface CLIConfig {
   baseDir: string;
   projectType: 'react' | 'next';
@@ -12,6 +20,7 @@ export interface CLIConfig {
   typescript: boolean;
   localization: boolean;
   port?: number;
+  docs?: DocsConfig;
 }
 
 const defaultConfig: CLIConfig = {

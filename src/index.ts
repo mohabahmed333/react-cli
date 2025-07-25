@@ -12,6 +12,7 @@ import { handleGenerate } from './commands/generate';
 import { handleBundleCheck } from './commands/bundleCheck';
 import { handleLibraries } from './commands/libraries';
 import { registerOperation } from './commands/operations/Operation';
+import { registerDocsCommand } from './commands/docs';
 
 
 const program = new Command();
@@ -24,6 +25,7 @@ handleGlobal(program, rl);
 handleConfig(program, rl);
 handleInit(program, rl);
 handleHelp(program, rl);
+registerDocsCommand(program, rl);
 
 handleDeps(program, rl);
 handleGenerate(program, rl);

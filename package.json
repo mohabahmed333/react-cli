@@ -28,6 +28,7 @@
     "color": "^4.2.3",
     "commander": "^14.0.0",
     "execa": "^9.6.0",
+    "fast-glob": "^3.3.3",
     "fs-extra": "^11.3.0",
     "inquirer": "^12.8.2",
     "jsdom": "^22.1.0",
