@@ -10,6 +10,7 @@ import { CLIConfig, setupConfiguration } from '../../../utils/config';
 import { askQuestion } from '../../../utils/prompt';
 import { GeneratorType } from '../../../types/generator-type';
 import { TReadlineInterface } from '../../../types/ReadLineInterface';
+import { generateRouteForPage } from '../../../utils/routeUtils';
 
 export interface PageOptions extends GenerateOptions {
   css?: boolean;
@@ -22,6 +23,7 @@ export interface PageOptions extends GenerateOptions {
   layout?: boolean;
   next?: boolean;
   intl?: boolean;
+  route?: boolean;
   rl?: TReadlineInterface;
 }
 
@@ -216,6 +218,8 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
     .option('--utils', 'Include utility functions')
     .option('--types', 'Include TypeScript types')
     .option('--layout', 'Include layout file')
+    .option('--route', 'Generate route automatically (default: true for React projects)')
+    .option('--no-route', 'Skip route generation')
     .option('-i, --interactive', 'Use interactive mode')
     .option('--ai', 'Use AI to generate the page code')
     .action(async (name: string | undefined, folder: string | undefined, options: PageOptions) => {
@@ -290,6 +294,12 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
               question: 'Include layout file? (y/n): ',
               condition: config.projectType === 'next',
               handler: (answer: string) => options.layout = answer.toLowerCase() === 'y'
+            },
+            {
+              key: 'route',
+              question: 'Generate route automatically? (y/n): ',
+              condition: config.projectType === 'react',
+              handler: (answer: string) => options.route = answer.toLowerCase() === 'y'
             }
           ];
 
@@ -307,10 +317,26 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
           options.aiFeatures = 'AI_REQUESTED';
         }
 
+        // Set default route option for React projects if not explicitly set
+        if (options.route === undefined && config.projectType === 'react') {
+          options.route = true; // Default to true for React projects
+        }
+
         // Create custom config with target directory
         const customConfig = { ...config, baseDir: targetDir, typescript: useTS };
         options.rl = rl; // Pass readline interface to options
         await createPage(pageName, options, customConfig);
+
+        // Generate route using original config and the actual page path  
+        if (options.route !== false && config.projectType === 'react') {
+          try {
+            const actualPagePath = `${targetDir}/${pageName}`;
+            await generateRouteForPage(pageName, actualPagePath, config); // Use original config
+          } catch (error) {
+            console.log(chalk.yellow(`⚠️ Could not generate route automatically: ${error instanceof Error ? error.message : error}`));
+            console.log(chalk.dim(`   You can add the route manually to your routes file.`));
+          }
+        }
       } catch (error) {
         console.error(chalk.red('❌ Error generating page:'), error instanceof Error ? error.message : error);
       } finally {
