@@ -10,7 +10,7 @@ import { registerGenerateErrorBoundary } from './generate/generateErrorBoundary'
 import { registerGenerateComponent } from './generate/component/generateComponent';
 import { registerGenerateHook } from './generate/generateHook';
 import { registerGenerateUtil } from './generate/generateUtil';
-import { registerGenerateType } from './generate/generateType';
+import { registerGenerateType } from './generate/type/generateType';
   import { registerGenerateRedux } from './generate/generateRedux';
 import { registerGenerateService } from './generate/generateService';
 import { registerGeneratePage } from './generate/page/generatePage';

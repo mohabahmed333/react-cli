@@ -46,23 +46,43 @@ async function handleAIGeneration(params: GenerateFileParams):
   Promise<GenerateFileResult> {
   if (!params.rl) return { usedAI: false, code: null };
 
-  const useAI = await askQuestion(
-    params.rl,
-    chalk.blue(`Generate ${params.type} with AI? (y/n): `)
-  );
+  // Check if AI was already explicitly requested (via --ai flag or interactive mode)
+  const explicitlyRequested = params.aiOptions?.features !== undefined && 
+                             params.aiOptions?.features !== '' &&
+                             params.aiOptions?.features !== 'AI_REQUESTED';
+  
+  const aiRequested = params.aiOptions?.features === 'AI_REQUESTED';
+  
+  let useAI = false;
+  
+  if (explicitlyRequested) {
+    // AI was already chosen with specific features, don't ask again
+    useAI = true;
+  } else if (aiRequested) {
+    // AI was requested via --ai flag, but no features provided yet
+    useAI = true;
+  } else {
+    // Ask user if they want to use AI (only if not already decided)
+    const response = await askQuestion(
+      params.rl,
+      chalk.blue(`Generate ${params.type} with AI? (y/n): `)
+    );
+    useAI = response.toLowerCase() === 'y';
+  }
 
-  if (useAI.toLowerCase() !== 'y') {
+  if (!useAI) {
     return { usedAI: false, code: null };
   }
 
-  let features = params.aiOptions?.features;
-  if (!params.aiOptions?.skipFeaturePrompt && !features) {
+  let features = params.aiOptions?.features || '';
+  
+  // Only prompt for features if they weren't already provided or if AI was just requested
+  if (!features || features === 'AI_REQUESTED') {
     features = await askQuestion(
       params.rl,
       chalk.blue(`Describe ${params.type} features (e.g., "dark mode, SSR"): `)
     );
   }
-
 
   const aiCode = await generateWithAI({
     config: params.config,

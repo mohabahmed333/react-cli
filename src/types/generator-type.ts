@@ -21,6 +21,7 @@ export type GeneratorType =
   | 'styled'
   | 'test'
   |'page'
+  | 'workers'
 
 /**
  * Supported file extensions</edit>

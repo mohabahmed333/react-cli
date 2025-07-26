@@ -2,16 +2,17 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import { setupConfiguration } from '../../utils/config';
-import { createFile, createFolder } from '../../utils/file';
 import { askQuestion } from '../../utils/prompt';
-import { 
-  shouldUseAI, 
-  generateTestUtilsWithAI, 
-  getAIFeatures, 
-  confirmAIOutput 
-} from '../../utils/generateAIHelper';
-import fs from 'fs';
+import { createGeneratedFile } from '../../utils/file/createGeneratedFile';
+import { GenerateOptions } from '../../utils/generateAIHelper';
 import { Interface as ReadlineInterface } from 'readline';
+
+interface TestUtilsOptions extends GenerateOptions {
+  replace?: boolean;
+  interactive?: boolean;
+  ai?: boolean;
+}
+
 export function registerGenerateTestUtils(generate: Command, rl: ReadlineInterface) {
   generate
     .command('test-utils')
@@ -19,60 +20,84 @@ export function registerGenerateTestUtils(generate: Command, rl: ReadlineInterfa
     .option('--replace', 'Replace file if it exists')
     .option('-i, --interactive', 'Use interactive mode')
     .option('--ai', 'Use AI to generate the test utilities code')
-    .action(async (options) => {
+    .action(async (options: TestUtilsOptions) => {
       try {
         console.log(chalk.cyan('\n🧪 Test Utilities Generator'));
         console.log(chalk.dim('======================'));
 
         const config = await setupConfiguration(rl);
-        const ext = config.typescript ? 'ts' : 'js';
-        const folderPath = path.join(config.baseDir, 'test-utils');
-        createFolder(folderPath);
-        const filePath = path.join(folderPath, `test-utils.${ext}`);
+        const useTS = config.typescript;
+        const targetDir = path.join(config.baseDir, 'test-utils');
+        const fileName = 'test-utils';
 
-        let useAI = false;
-        let aiFeatures = '';
+        // Handle interactive options
+        if (options.interactive && config.aiEnabled) {
+          options.ai = (await askQuestion(
+            rl,
+            chalk.blue('Use AI to generate code? (y/n): ')
+          )) === 'y';
 
-        if (options.interactive) {
-          // Ask about AI usage if enabled
-          if (config.aiEnabled) {
-            useAI = await shouldUseAI(rl, options, config);
-            if (useAI) {
-              console.log(chalk.cyan('\n📝 Test Utilities Configuration'));
-              console.log(chalk.cyan('\nDescribe additional features (e.g., "mock providers, custom queries, test data generators"):'));
-              aiFeatures = await getAIFeatures(rl, 'TestUtils');
-            }
-          }
-        } else {
-          useAI = await shouldUseAI(rl, options, config);
-        }
-
-        let content = '';
-        if (useAI) {
-          const aiContent = await generateTestUtilsWithAI(config, {
-            features: aiFeatures
-          });
-
-          if (aiContent && (!fs.existsSync(filePath) || options.replace)) {
-            if (await confirmAIOutput(rl, aiContent)) {
-              content = aiContent;
-            }
+          if (options.ai) {
+            options.aiFeatures = await askQuestion(
+              rl,
+              chalk.blue('Describe additional features (e.g., "mock providers, custom queries, test data generators"): ')
+            );
           }
         }
 
-        if (!content) {
-          content = `// Test utilities\nimport { render } from '@testing-library/react';\nimport { ThemeProvider } from '../contexts/ThemeContext';\n\nconst AllTheProviders = ({ children }) => {\n  return (\n    <ThemeProvider>\n      {children}\n    </ThemeProvider>\n  );\n};\n\nexport const customRender = (ui, options) =>\n  render(ui, { wrapper: AllTheProviders, ...options });\n\n// Re-export everything\n// export * from '@testing-library/react';\n`;
-        }
+        const defaultContent = generateTestUtilsContent(useTS);
 
-        if (createFile(filePath, content, options.replace)) {
-          console.log(chalk.green(`✅ Created test utilities: ${filePath}`));
-        } else {
-          console.log(chalk.yellow(`⚠️ Test utilities exist: ${filePath} (use --replace to overwrite)`));
-        }
+        await createGeneratedFile({
+          rl,
+          config,
+          type: 'test-utils',
+          name: fileName,
+          targetDir,
+          useTS,
+          replace: options.replace ?? false,
+          defaultContent,
+          aiOptions: options.ai ? {
+            features: options.aiFeatures,
+            additionalPrompt: generateAIPrompt()
+          } : undefined
+        });
+
+        console.log(chalk.green(`✅ Successfully generated test utilities`));
       } catch (error) {
-        console.error(chalk.red('❌ Error generating test utilities:'), error);
+        console.error(chalk.red('❌ Error generating test utilities:'), error instanceof Error ? error.message : error);
       } finally {
         rl.close();
       }
     });
+}
+
+function generateTestUtilsContent(useTS: boolean): string {
+  return `// Test utilities
+import { render } from '@testing-library/react';
+import { ThemeProvider } from '../contexts/ThemeContext';
+
+const AllTheProviders = ({ children }) => {
+  return (
+    <ThemeProvider>
+      {children}
+    </ThemeProvider>
+  );
+};
+
+export const customRender = (ui, options) =>
+  render(ui, { wrapper: AllTheProviders, ...options });
+
+// Re-export everything
+// export * from '@testing-library/react';
+`;
+}
+
+function generateAIPrompt(): string {
+  return `Create comprehensive test utilities for React Testing Library including:
+- Custom render function with common providers
+- Mock providers for common contexts
+- Custom queries
+- Test data generators
+- Utility functions for common testing patterns
+- TypeScript support if needed`;
 }

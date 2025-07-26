@@ -1,19 +1,13 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import fs from 'fs';
-import { setupConfiguration, CLIConfig } from '../../utils/config';
+import { setupConfiguration } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
-import { createFile, createFolder } from '../../utils/file';
-import { 
-  shouldUseAI, 
-  generateReduxWithAI, 
-  getAIFeatures, 
-  confirmAIOutput,
-  GenerateOptions 
-} from '../../utils/generateAIHelper';
+import { handleInteractiveName } from '../../utils/shared/handleInteractiveName';
+import { handleTargetDirectory } from '../../utils/file/handleTargetDirectory';
+import { createGeneratedFile } from '../../utils/file/createGeneratedFile';
+import { GenerateOptions } from '../../utils/generateAIHelper';
 import { Interface as ReadlineInterface } from 'readline';
-import { findFoldersByName } from '../../utils/file/findFolderByName';
 
 interface ReduxOptions extends GenerateOptions {
   ts?: boolean;
@@ -22,13 +16,6 @@ interface ReduxOptions extends GenerateOptions {
   ai?: boolean;
 }
 
-interface ReduxGenerateOptions {
-  useAI: boolean;
-  config: CLIConfig;
-  aiFeatures: string;
-  rl?: ReadlineInterface;
-}
- 
 export function registerGenerateRedux(generate: Command, rl: ReadlineInterface) {
   generate
     .command('redux [name] [folder]')
@@ -44,169 +31,67 @@ export function registerGenerateRedux(generate: Command, rl: ReadlineInterface) 
 
         const config = await setupConfiguration(rl);
         const useTS = options.ts ?? config.typescript;
-        let reduxName = name;
-        let targetDir: string | undefined = undefined;
-        let useAI = false;
-        let aiFeatures = '';
 
-        if (options.interactive) {
-          // 1. Prompt for redux slice name
-          reduxName = (await askQuestion(rl, chalk.blue('Enter redux slice name (PascalCase): '))) || '';
-          if (!/^[A-Z][a-zA-Z0-9]*$/.test(reduxName)) {
-            console.log(chalk.red('❌ Redux slice name must be PascalCase and start with a capital letter'));
-            return;
+        // Handle redux slice name
+        const reduxName = await handleInteractiveName(
+          rl,
+          name,
+          'redux',
+          {
+            pattern: /^[A-Z][a-zA-Z0-9]*$/,
+            patternError: "❌ Redux slice name must be PascalCase and start with a capital letter"
+          },
+        );
+
+        // Handle target directory
+        const targetDir = await handleTargetDirectory(
+          rl,
+          config,
+          folder,
+          'store',
+          options.interactive ?? false
+        );
+
+        // Handle interactive options
+        if (options.interactive && config.aiEnabled) {
+          const useAI = await askQuestion(
+            rl,
+            chalk.blue('Use AI to generate code? (y/n): ')
+          );
+          options.ai = useAI.toLowerCase() === 'y';
+
+          if (options.ai) {
+            options.aiFeatures = await askQuestion(
+              rl,
+              chalk.blue('Describe the state and actions needed (e.g., "user authentication state with login/logout actions"): ')
+            );
           }
-
-          // Ask about AI usage if enabled
-          if (config.aiEnabled) {
-            useAI = await shouldUseAI(rl, options, config);
-            if (useAI) {
-              console.log(chalk.cyan('\n📝 Redux Slice Configuration'));
-              console.log(chalk.cyan('\nDescribe the state and actions needed (e.g., "user authentication state with login/logout actions"):'));
-              aiFeatures = await getAIFeatures(rl, 'Redux');
-            }
-          }
-
-          // 2. Ask if user wants to add to a specific folder
-          const useFolder = await askQuestion(rl, chalk.blue('Add to a specific folder under app/? (y/n): '));
-          if (useFolder.toLowerCase() === 'y') {
-            // 3. Prompt for folder name
-            const folderName = await askQuestion(rl, chalk.blue('Enter folder name: '));
-            if (!folderName) {
-              console.log(chalk.red('❌ Folder name required.'));
-              return;
-            }
-            if (folderName.includes('/') || folderName.includes('\\')) {
-              targetDir = path.join(config.baseDir, folderName);
-            } else {
-              const baseSearch = path.join(process.cwd(), 'app');
-              const matches = findFoldersByName(baseSearch, folderName);
-              if (matches.length === 0) {
-                const createNew = await askQuestion(rl, chalk.yellow(`No folder named "${folderName}" found under app/. Create it? (y/n): `));
-                if (createNew.toLowerCase() !== 'y') {
-                  console.log(chalk.yellow('⏩ Redux slice creation cancelled'));
-                  return;
-                }
-                targetDir = path.join(baseSearch, folderName);
-                fs.mkdirSync(targetDir, { recursive: true });
-                console.log(chalk.green(`📁 Created directory: ${targetDir}`));
-              } else if (matches.length === 1) {
-                targetDir = matches[0];
-              } else {
-                let chosen = matches[0];
-                console.log(chalk.yellow('Multiple folders found:'));
-                matches.forEach((m, i) => console.log(`${i + 1}: ${m}`));
-                const idx = await askQuestion(rl, chalk.blue('Select folder number: '));
-                const num = parseInt(idx, 10);
-                if (!isNaN(num) && num >= 1 && num <= matches.length) {
-                  chosen = matches[num - 1];
-                } else {
-                  console.log(chalk.red('Invalid selection. Redux slice creation cancelled.'));
-                  return;
-                }
-                targetDir = chosen;
-              }
-            }
-          } else {
-            targetDir = path.join(config.baseDir, 'store');
-          }
-          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures, rl });
-          return;
         }
 
-        // Non-interactive mode
-        if (!reduxName) {
-          console.log(chalk.red('❌ Redux slice name is required.'));
-          return;
-        }
-        if (!/^[A-Z][a-zA-Z0-9]*$/.test(reduxName)) {
-          console.log(chalk.red('❌ Redux slice name must be PascalCase and start with a capital letter'));
-          return;
-        }
+        const defaultContent = useTS
+          ? `import { createSlice, PayloadAction } from '@reduxjs/toolkit';\n\ninterface ${reduxName}State {\n  // Add your state properties here\n}\n\nconst initialState: ${reduxName}State = {\n  // Initial state values\n};\n\nconst ${reduxName}Slice = createSlice({\n  name: '${reduxName.toLowerCase()}',\n  initialState,\n  reducers: {\n    // Add your reducers here\n    exampleReducer(state, action: PayloadAction<string>) {\n      // reducer logic\n    }\n  },\n});\n\nexport const { actions, reducer } = ${reduxName}Slice;\nexport default ${reduxName}Slice.reducer;\n`
+          : `import { createSlice } from '@reduxjs/toolkit';\n\nconst initialState = {\n  // Initial state values\n};\n\nconst ${reduxName}Slice = createSlice({\n  name: '${reduxName.toLowerCase()}',\n  initialState,\n  reducers: {\n    // Add your reducers here\n    exampleReducer(state, action) {\n      // reducer logic\n    }\n  },\n});\n\nexport const { actions, reducer } = ${reduxName}Slice;\nexport default ${reduxName}Slice.reducer;\n`;
 
-        if (folder) {
-          if (folder.includes('/') || folder.includes('\\')) {
-            targetDir = path.join(config.baseDir, folder);
-          } else {
-            const baseSearch = path.join(process.cwd(), 'app');
-            const matches = findFoldersByName(baseSearch, folder);
-            if (matches.length === 0) {
-              console.log(chalk.red(`❌ No folder named "${folder}" found under app/. Use -i to create interactively.`));
-              return;
-            } else if (matches.length === 1) {
-              targetDir = matches[0];
-            } else {
-              targetDir = matches[0]; // Default to first match
-            }
-          }
-          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures, rl });
-        } else {
-          targetDir = path.join(config.baseDir, 'store');
-          await createReduxInPath(reduxName, targetDir, useTS, options.replace, { useAI, config, aiFeatures, rl });
-        }
-      } catch (error: unknown) {
-        if (error instanceof Error) {
-          console.error(chalk.red(error.message));
-        } else {
-          console.error(chalk.red('An unknown error occurred'));
-        }
+        await createGeneratedFile({
+          rl,
+          config,
+          type: 'redux',
+          name: reduxName,
+          targetDir,
+          useTS,
+          replace: options.replace ?? false,
+          defaultContent,
+          aiOptions: options.ai ? {
+            features: options.aiFeatures,
+            additionalPrompt: `Create a Redux slice named ${reduxName} in ${useTS ? 'TypeScript' : 'JavaScript'} with proper typing and common patterns.`
+          } : undefined
+        });
+
+        console.log(chalk.green(`✅ Successfully generated ${reduxName} Redux slice`));
+      } catch (error) {
+        console.error(chalk.red('❌ Error generating Redux slice:'), error instanceof Error ? error.message : error);
+      } finally {
+        rl.close();
       }
     });
 }
-
-async function createReduxInPath(
-  reduxName: string, 
-  fullPath: string, 
-  useTS: boolean, 
-  replace = false, 
-  options: ReduxGenerateOptions
-) {
-  try {
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-      console.log(chalk.green(`📁 Created directory: ${fullPath}`));
-    }
-
-    const reduxFilePath = path.join(fullPath, `${reduxName}Slice.${useTS ? 'ts' : 'js'}`);
-    
-    let content = '';
-    if (options.useAI && options.config) {
-      const aiContent = await generateReduxWithAI(reduxName, options.config, {
-        features: options.aiFeatures
-      });
-
-      if (aiContent && (!fs.existsSync(reduxFilePath) || replace)) {
-        if (options.rl && await confirmAIOutput(options.rl, aiContent)) {
-          content = aiContent;
-        }
-      }
-    }
-
-    if (!content) {
-      content = useTS
-        ? `import { createSlice, PayloadAction } from '@reduxjs/toolkit';\n\ninterface ${reduxName}State {\n  // Add your state properties here\n}\n\nconst initialState: ${reduxName}State = {\n  // ...\n};\n\nconst ${reduxName}Slice = createSlice({\n  name: '${reduxName}',\n  initialState,\n  reducers: {\n    // add reducers here\n  },\n});\n\nexport const { actions, reducer } = ${reduxName}Slice;\n`
-        : `import { createSlice } from '@reduxjs/toolkit';\n\nconst initialState = {\n  // ...\n};\n\nconst ${reduxName}Slice = createSlice({\n  name: '${reduxName}',\n  initialState,\n  reducers: {\n    // add reducers here\n  },\n});\n\nexport const { actions, reducer } = ${reduxName}Slice;\n`;
-    }
-
-    if (createFile(reduxFilePath, content, replace)) {
-      console.log(chalk.green(`✅ Created Redux slice: ${reduxFilePath}`));
-    } else {
-      console.log(chalk.yellow(`⚠️ Redux slice exists: ${reduxFilePath} (use --replace to overwrite)`));
-    }
-  } catch (error: unknown) {
-    console.log(chalk.red(`❌ Error creating Redux slice:`));
-    if (error instanceof Error) {
-      console.error(chalk.red(error.message));
-      if ('code' in error) {
-        const fsError = error as { code: string };
-        if (fsError.code === 'ENOENT') {
-          console.log(chalk.yellow('💡 Check that parent directories exist and are writable'));
-        } else if (fsError.code === 'EACCES') {
-          console.log(chalk.yellow('💡 You might need permission to write to this directory'));
-        }
-      }
-    } else {
-      console.error(chalk.red(String(error)));
-    }
-  }
-} 

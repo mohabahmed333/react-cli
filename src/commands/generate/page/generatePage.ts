@@ -11,7 +11,7 @@ import { askQuestion } from '../../../utils/prompt';
 import { GeneratorType } from '../../../types/generator-type';
 import { TReadlineInterface } from '../../../types/ReadLineInterface';
 
-interface PageOptions extends GenerateOptions {
+export interface PageOptions extends GenerateOptions {
   css?: boolean;
   test?: boolean;
   components?: boolean;
@@ -22,6 +22,7 @@ interface PageOptions extends GenerateOptions {
   layout?: boolean;
   next?: boolean;
   intl?: boolean;
+  rl?: TReadlineInterface;
 }
 
 export async function createPage(name: string, options: PageOptions, config: CLIConfig) {
@@ -31,7 +32,7 @@ export async function createPage(name: string, options: PageOptions, config: CLI
     ? `${config.baseDir}/${config.localization ? '[lang]/' : ''}${name}`
     : `${config.baseDir}/${name}`;
 
-  const filesToGenerate = getFilesToGenerate(name, options, config, basePath);
+  const filesToGenerate = await getFilesToGenerate(name, options, config, basePath);
 
   // Create all files in a loop
   for (const file of filesToGenerate) {
@@ -44,28 +45,31 @@ export async function createPage(name: string, options: PageOptions, config: CLI
       useTS: file.useTS,
       replace: options.replace ?? false,
       defaultContent: file.content,
-      aiOptions: options.useAI ? {
-        features: options.aiFeatures,
-        additionalPrompt: file.aiPrompt
-      } : undefined
+      aiOptions: file.aiOptions
     });
   }
 
   console.log(chalk.green.bold(`\nCreated ${name} page at ${basePath}`));
 }
 
-function getFilesToGenerate(name: string, options: PageOptions, config: CLIConfig, basePath: string) {
+async function getFilesToGenerate(name: string, options: PageOptions, config: CLIConfig, basePath: string) {
   const useTS = config.typescript;
   const files = [];
+
+  // No need to handle AI generation here - createGeneratedFile will handle it
+  // Just pass the AI features if they were provided
 
   // Main page file
   files.push({
     type: 'page',
-    name: `${name}.${useTS ? 'tsx' : 'jsx'}`,
+    name: name,
     targetDir: basePath,
     useTS,
     content: generatePageContent(name, options, useTS),
-    aiPrompt: generateAIPrompt(name, options, useTS)
+    aiOptions: {
+      features: options.aiFeatures || '', // Pass features if provided, empty string if not
+      additionalPrompt: generateAIPrompt(name, options, useTS)
+    }
   });
 
   // Additional files based on options
@@ -82,7 +86,7 @@ function getFilesToGenerate(name: string, options: PageOptions, config: CLIConfi
   if (options.test) {
     files.push({
       type: 'test',
-      name: `${name}.test.${useTS ? 'tsx' : 'jsx'}`,
+      name: `${name}.test`,
       targetDir: basePath,
       useTS,
       content: generateTestContent(name, useTS)
@@ -92,7 +96,7 @@ function getFilesToGenerate(name: string, options: PageOptions, config: CLIConfi
   if (options.hooks) {
     files.push({
       type: 'hook',
-      name: `use${name}.${useTS ? 'ts' : 'js'}`,
+      name: `use${name}`,
       targetDir: `${config.baseDir}/hooks`,
       useTS,
       content: generateHookContent(name, useTS)
@@ -102,7 +106,7 @@ function getFilesToGenerate(name: string, options: PageOptions, config: CLIConfi
   if (options.utils) {
     files.push({
       type: 'utils',
-      name: `${name}Utils.${useTS ? 'ts' : 'js'}`,
+      name: `${name}Utils`,
       targetDir: `${config.baseDir}/utils`,
       useTS,
       content: generateUtilsContent(name, useTS)
@@ -112,7 +116,7 @@ function getFilesToGenerate(name: string, options: PageOptions, config: CLIConfi
   if (options.types && useTS) {
     files.push({
       type: 'types',
-      name: `${name}.types.ts`,
+      name: `${name}.types`,
       targetDir: `${config.baseDir}/types`,
       useTS: true,
       content: generateTypesContent(name)
@@ -292,8 +296,7 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
               question: 'Use AI to generate code? (y/n): ',
               condition: config.aiEnabled,
               handler: async (answer: string) => {
-                options.useAI = answer.toLowerCase() === 'y';
-                if (options.useAI) {
+                if (answer.toLowerCase() === 'y') {
                   options.aiFeatures = await askQuestion(
                     rl,
                     chalk.blue('Describe page features (e.g., "data fetching, forms"): ')
@@ -311,8 +314,15 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
           }
         }
 
+        // Handle --ai flag when not in interactive mode
+        if (options.ai) {
+          // Set a special marker to indicate AI was requested
+          options.aiFeatures = 'AI_REQUESTED';
+        }
+
         // Create custom config with target directory
         const customConfig = { ...config, baseDir: targetDir, typescript: useTS };
+        options.rl = rl; // Pass readline interface to options
         await createPage(pageName, options, customConfig);
       } catch (error) {
         console.error(chalk.red('❌ Error generating page:'), error instanceof Error ? error.message : error);

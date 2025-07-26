@@ -8,13 +8,15 @@ import { handleTargetDirectory } from '../../../utils/file/handleTargetDirectory
 import { createGeneratedFile } from '../../../utils/file/createGeneratedFile';
 import { CLIConfig, setupConfiguration } from '../../../utils/config';
 import { askQuestion } from '../../../utils/prompt';
+import { handleGeneratorOptions, COMPONENT_OPTIONS_CONFIG } from '../../../utils/shared/generatorOptions';
 import { GeneratorType } from '../../../types/generator-type';
+import { generateComponentContent, generateCSSContent, generateStyledComponentsContent, generateTestContent } from '../../../content';
+ 
 
-interface ComponentOptions extends GenerateOptions {
+export interface ComponentOptions extends GenerateOptions {
   css?: boolean;
   test?: boolean;
   replace?: boolean;
-  useAI?: boolean;
   aiFeatures?: string;
   lazy?: boolean;
   memo?: boolean;
@@ -29,7 +31,10 @@ interface FileToGenerate {
   name: string;
   content: string;
   useTS: boolean;
-  aiPrompt?: string;
+  aiOptions?: {
+    features?: string;
+    additionalPrompt?: string;
+  };
 }
 
 export function registerGenerateComponent(generate: Command, rl: ReadlineInterface) {
@@ -74,16 +79,54 @@ export function registerGenerateComponent(generate: Command, rl: ReadlineInterfa
 
         // Handle interactive options
         if (options.interactive) {
-          await handleInteractiveOptions(rl, options, config);
+          const interactiveResult = await handleGeneratorOptions(
+            rl,
+            config,
+            useTS,
+            COMPONENT_OPTIONS_CONFIG
+          );
+
+          // Apply AI options - set aiFeatures if AI was chosen
+          if (interactiveResult.useAI && interactiveResult.aiFeatures) {
+            options.aiFeatures = interactiveResult.aiFeatures;
+          }
+
+          // Apply styling options
+          if (interactiveResult.styling) {
+            options.css = interactiveResult.styling === 'css';
+            options.styled = interactiveResult.styling === 'styled';
+          }
+
+          // Apply additional file options
+          options.test = interactiveResult.additionalFiles.test;
+
+          // Ask for component-specific options
+          const memoChoice = await askQuestion(rl, chalk.blue('Optimize with React.memo? (y/n): '));
+          options.memo = memoChoice.toLowerCase() === 'y';
+
+          const forwardRefChoice = await askQuestion(rl, chalk.blue('Add forwardRef support? (y/n): '));
+          options.forwardRef = forwardRefChoice.toLowerCase() === 'y';
+
+          const exportChoice = await askQuestion(rl, chalk.blue('Export type (default/named): '));
+          options.exportType = exportChoice.toLowerCase() === 'named' ? 'named' : 'default';
+
+          const replaceChoice = await askQuestion(rl, chalk.blue('Replace existing files if they exist? (y/n): '));
+          options.replace = replaceChoice.toLowerCase() === 'y';
+        } else {
+          // Handle --ai flag when not in interactive mode
+          if (options.ai) {
+            // Set a special marker to indicate AI was requested
+            options.aiFeatures = 'AI_REQUESTED';
+          }
         }
 
         const componentFolder = path.join(targetDir, componentName);
-        const filesToGenerate = getFilesToGenerate(componentName, options, useTS);
+        const filesToGenerate = await getFilesToGenerate(componentName, options, useTS, config);
 
         // Generate all files in a loop
         for (const file of filesToGenerate) {
           await createGeneratedFile({
-            rl,
+            rl: rl,
             config,
             type: file.type as GeneratorType,
             name: file.name,
@@ -91,10 +134,7 @@ export function registerGenerateComponent(generate: Command, rl: ReadlineInterfa
             useTS: file.useTS,
             replace: options.replace ?? false,
             defaultContent: file.content,
-            aiOptions: options.useAI ? {
-              features: options.aiFeatures,
-              additionalPrompt: file.aiPrompt
-            } : undefined
+            aiOptions: file.aiOptions
           });
         }
 
@@ -107,75 +147,21 @@ export function registerGenerateComponent(generate: Command, rl: ReadlineInterfa
     });
 }
 
-async function handleInteractiveOptions(rl: ReadlineInterface, options: ComponentOptions, config: CLIConfig) {
-  const questions = [
-    {
-      key: 'stylingMethod',
-      question: 'Choose styling method (css/styled/none): ',
-      handler: (answer: string) => {
-        options.css = answer === 'css';
-        options.styled = answer === 'styled';
-      }
-    },
-    {
-      key: 'test',
-      question: 'Include test file? (y/n): ',
-      handler: (answer: string) => options.test = answer.toLowerCase() === 'y'
-    },
-    {
-      key: 'memo',
-      question: 'Optimize with React.memo? (y/n): ',
-      handler: (answer: string) => options.memo = answer.toLowerCase() === 'y'
-    },
-    {
-      key: 'forwardRef',
-      question: 'Add forwardRef support? (y/n): ',
-      handler: (answer: string) => options.forwardRef = answer.toLowerCase() === 'y'
-    },
-    {
-      key: 'exportType',
-      question: 'Export type (default/named): ',
-      handler: (answer: string) => options.exportType = answer.toLowerCase() === 'named' ? 'named' : 'default'
-    },
-    {
-      key: 'ai',
-      question: 'Use AI to generate code? (y/n): ',
-      condition: config.aiEnabled,
-      handler: async (answer: string) => {
-        options.useAI = answer.toLowerCase() === 'y';
-        if (options.useAI) {
-          options.aiFeatures = await askQuestion(
-            rl,
-            chalk.blue('Describe component features (e.g., "dark mode, responsive"): ')
-          );
-        }
-      }
-    },
-    {
-      key: 'replace',
-      question: 'Replace existing files if they exist? (y/n): ',
-      handler: (answer: string) => options.replace = answer.toLowerCase() === 'y'
-    }
-  ];
 
-  for (const { question, handler, condition } of questions) {
-    if (condition !== false) { // Skip only if explicitly false
-      const answer = await askQuestion(rl, chalk.blue(question));
-      await handler(answer);
-    }
-  }
-}
 
-function getFilesToGenerate(name: string, options: ComponentOptions, useTS: boolean): FileToGenerate[] {
+async function getFilesToGenerate(name: string, options: ComponentOptions, useTS: boolean, config: CLIConfig): Promise<FileToGenerate[]> {
   const files: FileToGenerate[] = [];
 
-  // Main component file
+  // Main component file - let createGeneratedFile handle AI generation
   files.push({
     type: 'component',
     name,
     content: generateComponentContent(name, options, useTS),
     useTS,
-    aiPrompt: generateAIPrompt(name, options, useTS)
+    aiOptions: {
+      features: options.aiFeatures || '', // Pass features if provided, empty string if not
+      additionalPrompt: generateAIPrompt(name, options, useTS)
+    }
   });
 
   // CSS module
@@ -183,8 +169,9 @@ function getFilesToGenerate(name: string, options: ComponentOptions, useTS: bool
     files.push({
       type: 'css',
       name: `${name}.module`,
-      content: `.container {\n  /* Styles for ${name} */\n}`,
+      content: generateCSSContent(name),
       useTS: false
+      // No aiOptions for CSS files
     });
   }
 
@@ -193,8 +180,9 @@ function getFilesToGenerate(name: string, options: ComponentOptions, useTS: bool
     files.push({
       type: 'styled',
       name: `${name}.styles`,
-      content: `import styled from 'styled-components';\n\nexport const Container = styled.div\`\n  /* Styles for ${name} */\n\`;\n`,
+      content: generateStyledComponentsContent(name),
       useTS: false
+      // No aiOptions for styled files
     });
   }
 
@@ -205,66 +193,15 @@ function getFilesToGenerate(name: string, options: ComponentOptions, useTS: bool
       name: `${name}.test`,
       content: generateTestContent(name, useTS, options.exportType),
       useTS
+      // No aiOptions for test files
     });
   }
 
   return files;
 }
 
-function generateComponentContent(name: string, options: ComponentOptions, useTS: boolean): string {
-  const imports = ['React'];
-  const propsInterface = useTS ? `interface ${name}Props {\n  // define props here\n}` : '';
-  let componentBody = '';
 
-  // Add necessary imports
-  if (options.css) imports.push(`styles from './${name}.module.css'`);
-  if (options.styled) imports.push('styled from "styled-components"');
-  if (options.memo) imports.push('memo');
-  if (options.forwardRef) imports.push('forwardRef');
 
-  // Create container element
-  const container = options.styled 
-    ? '<Container>' 
-    : `<div${options.css ? ' className={styles.container}' : ''}>`;
-  const closing = options.styled ? '</Container>' : '</div>';
-
-  // Component body with forwardRef or regular
-  componentBody = options.forwardRef
-    ? useTS
-      ? `const ${name}Component = forwardRef<HTMLDivElement, ${name}Props>((props, ref) => {\n  return (\n    ${container} ref={ref}>\n      {/* ${name} content */}\n    ${closing}\n  );\n});`
-      : `const ${name}Component = forwardRef((props, ref) => {\n  return (\n    ${container} ref={ref}>\n      {/* ${name} content */}\n    ${closing}\n  );\n});`
-    : `const ${name}Component = (props) => {\n  return (\n    ${container}\n      {/* ${name} content */}\n    ${closing}\n  );\n}`;
-
-  // Apply memo if needed
-  componentBody += options.memo 
-    ? `\nconst ${name} = memo(${name}Component);` 
-    : `\nconst ${name} = ${name}Component;`;
-
-  // Handle lazy loading
-  if (options.lazy) {
-    imports.push('lazy from "react"');
-    return `${imports.join(', ')};\n\n${propsInterface}\n\n${
-      options.exportType === 'named'
-        ? `const ${name} = lazy(() => import('./${name}'));\n\nexport { ${name} };`
-        : `export default lazy(() => import('./${name}'));`
-    }`;
-  }
-
-  // Regular export
-  const exportStatement = options.exportType === 'named' 
-    ? `export { ${name} }` 
-    : `export default ${name}`;
-
-  return `${imports.join(', ')};\n\n${propsInterface}\n\n${componentBody}\n\n${exportStatement};`;
-}
-
-function generateTestContent(name: string, useTS: boolean, exportType?: 'default' | 'named'): string {
-  const importStatement = exportType === 'named'
-    ? `import { ${name} } from './${name}';`
-    : `import ${name} from './${name}';`;
-
-  return `import React from 'react';\nimport { render } from '@testing-library/react';\n${importStatement}\n\ndescribe('${name}', () => {\n  it('renders without crashing', () => {\n    render(<${name} />);\n  });\n});`;
-}
 
 function generateAIPrompt(name: string, options: ComponentOptions, useTS: boolean): string {
   const features = [
@@ -276,7 +213,6 @@ function generateAIPrompt(name: string, options: ComponentOptions, useTS: boolea
     options.lazy && 'Lazy loading support'
   ].filter(Boolean).join('\n- ');
 
-  return `Create a React component named ${name} in ${useTS ? 'TypeScript' : 'JavaScript'} with:\n- ${features}${
-    options.aiFeatures ? `\nAdditional features: ${options.aiFeatures}` : ''
-  }`;
+  return `Create a React component named ${name} in ${useTS ? 'TypeScript' : 'JavaScript'} with:\n- ${features}${options.aiFeatures ? `\nAdditional features: ${options.aiFeatures}` : ''
+    }`;
 }

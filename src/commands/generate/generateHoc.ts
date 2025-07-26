@@ -8,7 +8,8 @@ import { handleInteractiveName } from '../../utils/shared/handleInteractiveName'
 import { handleTargetDirectory } from '../../utils/file/handleTargetDirectory';
 import { createGeneratedFile } from '../../utils/file/createGeneratedFile';
 import { GenerateOptions } from '../../utils/generateAIHelper';
-import { Interface as ReadlineInterface } from 'readline';
+ import { Interface as ReadlineInterface } from 'readline';
+import { generateHocContent } from '../../content';
 
 export function registerGenerateHoc(generate: Command, rl: ReadlineInterface) {
   generate
@@ -39,9 +40,7 @@ export function registerGenerateHoc(generate: Command, rl: ReadlineInterface) {
           options.interactive ?? false
         );
 
-        const defaultContent = useTS
-          ? `import React from 'react';\n\nexport function with${hocName}<P extends object>(\n  WrappedComponent: React.ComponentType<P>\n) {\n  const ComponentWith${hocName} = (props: P) => {\n    // Add your HOC logic here\n    return <WrappedComponent {...props} />;\n  };\n\n  return ComponentWith${hocName};\n}\n`
-          : `import React from 'react';\n\nexport function with${hocName}(WrappedComponent) {\n  return function ComponentWith${hocName}(props) {\n    // Add your HOC logic here\n    return <WrappedComponent {...props} />;\n  };\n}\n`;
+        const defaultContent = generateHocContent(hocName, useTS);
 
         await createGeneratedFile({
           rl,

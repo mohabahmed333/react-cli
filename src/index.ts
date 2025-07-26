@@ -10,9 +10,9 @@ import { handleDeps } from './commands/deps';
 import { handleGenerate } from './commands/generate';
 import { handleBundleCheck } from './commands/bundleCheck';
 import { handleLibraries } from './commands/libraries';
-import { registerOperation } from './commands/operations/Operation';
-import { registerDocsCommand } from './commands/docs';
+ import { registerDocsCommand } from './commands/docs';
 import { setupAICommands } from './commands/ai';
+import { registerOperation } from './operations/Operation';
 
 const program = new Command();
 

@@ -15,9 +15,9 @@ const deps_1 = require("./commands/deps");
 const generate_1 = require("./commands/generate");
 const bundleCheck_1 = require("./commands/bundleCheck");
 const libraries_1 = require("./commands/libraries");
-const Operation_1 = require("./commands/operations/Operation");
 const docs_1 = require("./commands/docs");
 const ai_1 = require("./commands/ai");
+const Operation_1 = require("./operations/Operation");
 const program = new commander_1.Command();
 // Create a single readline interface
 const rl = readline_1.default.createInterface({
