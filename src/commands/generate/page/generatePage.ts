@@ -290,19 +290,6 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
               question: 'Include layout file? (y/n): ',
               condition: config.projectType === 'next',
               handler: (answer: string) => options.layout = answer.toLowerCase() === 'y'
-            },
-            {
-              key: 'ai',
-              question: 'Use AI to generate code? (y/n): ',
-              condition: config.aiEnabled,
-              handler: async (answer: string) => {
-                if (answer.toLowerCase() === 'y') {
-                  options.aiFeatures = await askQuestion(
-                    rl,
-                    chalk.blue('Describe page features (e.g., "data fetching, forms"): ')
-                  );
-                }
-              }
             }
           ];
 
