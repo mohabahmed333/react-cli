@@ -110,7 +110,7 @@ async function generateAIMarkdown(filePath: string, config: CLIConfig, docsConfi
 
 export async function generateAIDocumentation(options: AIDocsOptions, config: CLIConfig): Promise<void> {
   if (!config.aiEnabled) {
-    console.log(chalk.yellow('AI features are not enabled. Run "yarn re enable-ai" to enable them.'));
+    console.log(chalk.yellow('AI features are not enabled. Run "yarn re ai enable" to enable them.'));
     return;
   }
 

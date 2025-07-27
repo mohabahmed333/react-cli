@@ -33,7 +33,7 @@ process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
 
 // Register commands with the same readline interface
-handleA11yScan(program, rl);
+// handleA11yScan(program, rl);
 handleLibraries(program, rl);
 handleGlobal(program, rl);
 handleConfig(program, rl);
@@ -41,7 +41,7 @@ handleInit(program, rl);
 handleHelp(program, rl);
 handleDeps(program, rl);
 handleGenerate(program, rl);
-handleBundleCheck(program, rl);
+// handleBundleCheck(program, rl);
 registerOperation(program, rl);
 registerDocsCommand(program, rl);
 setupAICommands(program, rl); // Update this to accept rl

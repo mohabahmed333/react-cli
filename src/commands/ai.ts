@@ -7,6 +7,7 @@ import { CLIConfig, setupConfiguration } from '../utils/config';
 import { createFile } from '../utils/file';
 import readline from 'readline';
 import dotenv from 'dotenv';
+import { HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
 
 function createOrUpdateEnvFile() {
   const envPath = path.join(process.cwd(), '.env');
@@ -32,7 +33,7 @@ function createOrUpdateEnvFile() {
 
 function validateAIConfig(config: CLIConfig) {
   if (!config.aiEnabled) {
-    console.log(chalk.yellow('AI features are not enabled. Run "yarn re enable-ai" to enable them.'));
+    console.log(chalk.yellow('AI features are not enabled. Run "yarn re ai enable" to enable them.'));
     return false;
   }
   
@@ -58,8 +59,14 @@ function validateAIConfig(config: CLIConfig) {
 }
 
 export function setupAICommands(program: Command, rl: readline.Interface) {
-  program
-    .command('ai <prompt>')
+  const aiCommand = program
+    .command('ai')
+    .description('AI-powered development tools');
+
+  // Generate code subcommand
+  aiCommand
+    .command('generate <prompt>')
+    .alias('gen')
     .description('Generate code with Gemini AI')
     .option('-o, --output <file>', 'Output file path')
     .action(async (prompt: string, options: { output?: string }) => {
@@ -86,8 +93,9 @@ export function setupAICommands(program: Command, rl: readline.Interface) {
       }
     });
 
-  program
-    .command('ai-enhance <file>')
+  // Enhance code subcommand
+  aiCommand
+    .command('enhance <file>')
     .description('Improve existing file with AI')
     .action(async (filePath: string) => {
       const config = await setupConfiguration(rl);
@@ -113,8 +121,9 @@ export function setupAICommands(program: Command, rl: readline.Interface) {
       }
     });
 
-  program
-    .command('ai-docs <file>')
+  // Generate documentation subcommand
+  aiCommand
+    .command('docs <file>')
     .description('Generate documentation with AI')
     .action(async (filePath: string) => {
       const config = await setupConfiguration(rl);
@@ -139,5 +148,41 @@ export function setupAICommands(program: Command, rl: readline.Interface) {
         createFile(docsPath, docs);
         console.log(chalk.green(`✅ Documentation generated: ${docsPath}`));
       }
+    });
+
+  // Enable AI subcommand
+  aiCommand
+    .command('enable')
+    .description('Enable AI features')
+    .action(async () => {
+      const configPath = path.join(process.cwd(), 'create.config.json');
+      let config = await setupConfiguration(rl);
+      
+      // Set required AI configuration
+      config.aiEnabled = true;
+      config.aiProvider = 'gemini';
+      config.aiModel = 'gemini-1.5-flash-latest';
+      config.aiSafetySettings = [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE }
+      ];
+      
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      console.log(chalk.green('\n✅ AI features enabled'));
+      console.log(chalk.yellow('Note: Make sure you have GEMINI_API_KEY in your .env file'));
+      rl.close();
+    });
+
+  // Disable AI subcommand
+  aiCommand
+    .command('disable')
+    .description('Disable AI features')
+    .action(async () => {
+      const configPath = path.join(process.cwd(), 'create.config.json');
+      let config = await setupConfiguration(rl);
+      config.aiEnabled = false;
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      console.log(chalk.yellow('\n❌ AI features disabled'));
+      rl.close();
     });
 } 

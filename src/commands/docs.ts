@@ -30,7 +30,7 @@ export function registerDocsCommand(program: Command, rl: readline.Interface) {
         
         if (options.ai) {
           if (!config.aiEnabled) {
-            console.log(chalk.yellow('AI features are not enabled. Run "yarn re enable-ai" to enable them.'));
+            console.log(chalk.yellow('AI features are not enabled. Run "yarn re ai enable" to enable them.'));
             return;
           }
 
