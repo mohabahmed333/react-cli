@@ -25,6 +25,22 @@ export function isPascalCase(name: string) {
   return /^[A-Z][a-zA-Z0-9]*$/.test(name);
 }
 
+export function isValidPageName(name: string) {
+  // Allow PascalCase names
+  if (isPascalCase(name)) {
+    return true;
+  }
+  
+  // Allow dynamic route patterns like _[id], _[productId], etc.
+  if (name.startsWith('_[') && name.endsWith(']')) {
+    const paramName = name.slice(2, -1);
+    // Parameter name should be camelCase or lowercase
+    return /^[a-z][a-zA-Z0-9]*$/.test(paramName);
+  }
+  
+  return false;
+}
+
 function getTypePromptQuestions(kind: 'enum' | 'interface' | 'class' | 'type'): { [key: string]: string } {
   const questions: { [key: string]: { [key: string]: string } } = {
     enum: {

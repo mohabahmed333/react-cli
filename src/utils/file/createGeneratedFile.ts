@@ -7,15 +7,66 @@ import { getFileExtension } from './getFileExtention';
 import { FileExtension, GenerateFileParams, GenerateFileResult, GeneratorType } from '../../types/generator-type';
 import { askQuestion } from '../prompt';
 import { formatFileName } from './formatFIleName';
- 
+import { findFoldersByName } from './findFolderByName';
 
 export async function createGeneratedFile(params: GenerateFileParams):
   Promise<GenerateFileResult> {
   try {
-    await ensureDirectoryExists(params.targetDir);
+    // Determine target directory using existing logic
+    let targetDir = params.targetDir;
+    
+    // Only ask for custom path in interactive mode
+    if (params.rl) {
+      // First, check if there are existing folders with the same name
+      const baseDir = params.config?.baseDir || 'app';
+      const existingFolders = findFoldersByName(baseDir, params.name);
+      
+      if (existingFolders.length > 0) {
+        console.log(chalk.cyan(`Found existing folder(s) for "${params.name}":`));
+        existingFolders.forEach((folder, index) => {
+          const relativePath = path.relative(baseDir, folder);
+          console.log(chalk.dim(`  ${index + 1}. ${relativePath}`));
+        });
+        
+        const useExisting = await askQuestion(
+          params.rl,
+          chalk.blue(`Use existing folder? (y/n): `)
+        );
+        
+        if (useExisting.toLowerCase() === 'y') {
+          if (existingFolders.length === 1) {
+            targetDir = existingFolders[0];
+          } else {
+            const selection = await askQuestion(
+              params.rl,
+              chalk.blue(`Select folder (1-${existingFolders.length}): `)
+            );
+            const index = parseInt(selection) - 1;
+            if (index >= 0 && index < existingFolders.length) {
+              targetDir = existingFolders[index];
+            }
+          }
+        }
+      }
+      
+      // Ask if user wants to customize the path
+      const currentPath = path.relative(baseDir, targetDir);
+      const customPath = await askQuestion(
+        params.rl,
+        chalk.blue(`Target directory (current: ${currentPath}, press Enter to use default): `)
+      );
+      
+      if (customPath.trim()) {
+        targetDir = path.isAbsolute(customPath) 
+          ? customPath 
+          : path.join(baseDir, customPath);
+      }
+    }
+
+    await ensureDirectoryExists(targetDir);
     const ext = getFileExtension(params.type, params.useTS) as FileExtension;
     const fileName = formatFileName(params.name, params.type, ext);
-    const filePath = path.join(params.targetDir, fileName);
+    const filePath = path.join(targetDir, fileName);
 
     if (fs.existsSync(filePath) && !params.replace) {
       console.log(chalk.yellow(`⚠️ ${params.type} file already exists: ${filePath}`));
@@ -47,14 +98,14 @@ async function handleAIGeneration(params: GenerateFileParams):
   if (!params.rl) return { usedAI: false, code: null };
 
   // Check if AI was already explicitly requested (via --ai flag or interactive mode)
-  const explicitlyRequested = params.aiOptions?.features !== undefined && 
-                             params.aiOptions?.features !== '' &&
-                             params.aiOptions?.features !== 'AI_REQUESTED';
-  
+  const explicitlyRequested = params.aiOptions?.features !== undefined &&
+    params.aiOptions?.features !== '' &&
+    params.aiOptions?.features !== 'AI_REQUESTED';
+
   const aiRequested = params.aiOptions?.features === 'AI_REQUESTED';
-  
+
   let useAI = false;
-  
+
   if (explicitlyRequested) {
     // AI was already chosen with specific features, don't ask again
     useAI = true;
@@ -75,7 +126,7 @@ async function handleAIGeneration(params: GenerateFileParams):
   }
 
   let features = params.aiOptions?.features || '';
-  
+
   // Only prompt for features if they weren't already provided or if AI was just requested
   if (!features || features === 'AI_REQUESTED') {
     features = await askQuestion(
@@ -93,7 +144,7 @@ async function handleAIGeneration(params: GenerateFileParams):
     features,
     additionalPrompt: params.aiOptions?.additionalPrompt
   });
-   
+
   return aiCode as GenerateFileResult;
 }
 

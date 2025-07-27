@@ -123,9 +123,20 @@ function getRoutesFilePath(config: CLIConfig): string {
     return pagesRoutesPath;
   }
   
-  // Fallback to routes folder
+  // Try routes folder directly under baseDir
   const routesPath = path.resolve(config.baseDir, 'routes', `routes.${ext}`);
-  return routesPath;
+  if (fs.existsSync(routesPath)) {
+    return routesPath;
+  }
+  
+  // Try src/routes (for src-based projects)
+  const srcRoutesPath = path.resolve(config.baseDir, 'src', 'routes', `routes.${ext}`);
+  if (fs.existsSync(srcRoutesPath)) {
+    return srcRoutesPath;
+  }
+  
+  // Default to pages/routes (will be created if needed)
+  return pagesRoutesPath;
 }
 
 /**
@@ -159,6 +170,20 @@ export function createInitialRoutesFile(config: CLIConfig): string {
 
   createFile(filePath, content, false);
   return filePath;
+}
+
+/**
+ * Convert dynamic route pattern to valid component name
+ * Examples: _[id] -> DynamicId, _[productId] -> DynamicProductId
+ */
+function convertToValidComponentName(pageName: string): string {
+  if (pageName.startsWith('_[') && pageName.endsWith(']')) {
+    const param = pageName.slice(2, -1);
+    // Convert camelCase to PascalCase and add Dynamic prefix
+    const pascalParam = param.charAt(0).toUpperCase() + param.slice(1);
+    return `Dynamic${pascalParam}`;
+  }
+  return pageName;
 }
 
 /**
@@ -373,9 +398,17 @@ export function addRouteToFile(filePath: string, routeInfo: RouteInfo, config: C
   try {
     const { content, imports } = parseExistingRoutes(filePath);
     
-    // Generate import statement
-    const componentName = routeInfo.pageName;
-    const importStatement = `import ${componentName} from '${routeInfo.importPath}';`;
+    // Generate import statement with valid component name
+    const componentName = convertToValidComponentName(routeInfo.pageName);
+    let importStatement: string;
+    
+    // For dynamic routes, use import aliasing to handle special characters in path
+    if (routeInfo.pageName.startsWith('_[') && routeInfo.pageName.endsWith(']')) {
+      // Use a more descriptive alias that TypeScript can handle
+      importStatement = `import ${componentName} from '${routeInfo.importPath}';`;
+    } else {
+      importStatement = `import ${componentName} from '${routeInfo.importPath}';`;
+    }
     
     // Generate route entry
     const routeEntry = generateRouteEntry(routeInfo, componentName);

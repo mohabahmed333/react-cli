@@ -11,6 +11,21 @@ import { askQuestion } from '../../../utils/prompt';
 import { GeneratorType } from '../../../types/generator-type';
 import { TReadlineInterface } from '../../../types/ReadLineInterface';
 import { generateRouteForPage } from '../../../utils/routeUtils';
+import { isValidPageName } from '../type/typeHelpers';
+
+/**
+ * Convert dynamic route pattern to valid component name
+ * Examples: _[id] -> DynamicId, _[productId] -> DynamicProductId
+ */
+function convertToValidComponentName(pageName: string): string {
+  if (pageName.startsWith('_[') && pageName.endsWith(']')) {
+    const param = pageName.slice(2, -1);
+    // Convert camelCase to PascalCase and add Dynamic prefix
+    const pascalParam = param.charAt(0).toUpperCase() + param.slice(1);
+    return `Dynamic${pascalParam}`;
+  }
+  return pageName;
+}
 
 export interface PageOptions extends GenerateOptions {
   css?: boolean;
@@ -150,15 +165,17 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
 
 // Content generation helper functions
 function generatePageContent(name: string, options: PageOptions, useTS: boolean): string {
+  const componentName = convertToValidComponentName(name);
   return useTS
-    ? `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\ninterface ${name}Props {}\n\nconst ${name}: React.FC<${name}Props> = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${name} Page</h1>\n    </div>\n  );\n};\n\nexport default ${name};\n`
-    : `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\nconst ${name} = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${name} Page</h1>\n    </div>\n  );\n};\n\nexport default ${name};\n`;
+    ? `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\ninterface ${componentName}Props {}\n\nconst ${componentName}: React.FC<${componentName}Props> = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${componentName} Page</h1>\n    </div>\n  );\n};\n\nexport default ${componentName};\n`
+    : `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\nconst ${componentName} = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${componentName} Page</h1>\n    </div>\n  );\n};\n\nexport default ${componentName};\n`;
 }
 
 function generateTestContent(name: string, useTS: boolean): string {
+  const componentName = convertToValidComponentName(name);
   return useTS
-    ? `import { render, screen } from '@testing-library/react';\nimport ${name} from './${name}';\n\ndescribe('${name}', () => {\n  it('renders', () => {\n    render(<${name} />);\n    expect(screen.getByText('${name} Page')).toBeInTheDocument();\n  });\n});\n`
-    : `import { render, screen } from '@testing-library/react';\nimport ${name} from './${name}';\n\ntest('renders ${name}', () => {\n  render(<${name} />);\n  expect(screen.getByText('${name} Page')).toBeInTheDocument();\n});\n`;
+    ? `import { render, screen } from '@testing-library/react';\nimport ${componentName} from './${name}';\n\ndescribe('${componentName}', () => {\n  it('renders', () => {\n    render(<${componentName} />);\n    expect(screen.getByText('${componentName} Page')).toBeInTheDocument();\n  });\n});\n`
+    : `import { render, screen } from '@testing-library/react';\nimport ${componentName} from './${name}';\n\ntest('renders ${componentName}', () => {\n  render(<${componentName} />);\n  expect(screen.getByText('${componentName} Page')).toBeInTheDocument();\n});\n`;
 }
 
 function generateHookContent(name: string, useTS: boolean): string {
@@ -230,16 +247,25 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
         const config = await setupConfiguration(rl);
         const useTS = options.useTS ?? config.typescript;
 
-        // Handle page name
-        const pageName = await handleInteractiveName(
-          rl,
-          name,
-          'page',
-          {
-            pattern: /^[A-Z][a-zA-Z0-9]*$/,
-            patternError: "❌ Page name must be PascalCase and start with a capital letter"
-          },
-         );
+        // Handle page name with custom validation for dynamic routes
+        let pageName = name;
+        if (!pageName) {
+          const promptMessage = chalk.blue('Enter page name (PascalCase or dynamic route like _[id]): ');
+          pageName = (await askQuestion(rl, promptMessage)) || '';
+        }
+        
+        // Validate page name
+        if (!pageName) {
+          console.log(chalk.red('❌ Page name is required'));
+          rl.close();
+          process.exit(1);
+        }
+        
+        if (!isValidPageName(pageName)) {
+          console.log(chalk.red('❌ Page name must be PascalCase (e.g., HomePage) or a dynamic route (e.g., _[id])'));
+          rl.close();
+          process.exit(1);
+        }
 
         // Handle target directory
         const targetDir = await handleTargetDirectory(
