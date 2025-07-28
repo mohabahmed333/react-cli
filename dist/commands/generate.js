@@ -16,6 +16,7 @@ const generateRedux_1 = require("./generate/generateRedux");
 const generateService_1 = require("./generate/generateService");
 const generatePage_1 = require("./generate/page/generatePage");
 const generateContext_1 = require("./generate/generateContext");
+const generateTemplate_1 = require("./generate/generateTemplate");
 function handleGenerate(program, rl) {
     const generate = program.command('g').description('Generators for common React patterns');
     (0, generateHoc_1.registerGenerateHoc)(generate, rl);
@@ -33,4 +34,5 @@ function handleGenerate(program, rl) {
     (0, generateRedux_1.registerGenerateRedux)(generate, rl);
     (0, generateService_1.registerGenerateService)(generate, rl);
     (0, generateGuard_1.registerGenerateGuard)(generate, rl);
+    (0, generateTemplate_1.registerGenerateTemplate)(generate, rl);
 }

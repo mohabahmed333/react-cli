@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const a11yScan_1 = require("./commands/a11yScan");
 const commander_1 = require("commander");
 const chalk_1 = __importDefault(require("chalk"));
 const readline_1 = __importDefault(require("readline"));
@@ -13,11 +12,11 @@ const config_1 = require("./commands/config");
 const help_1 = require("./commands/help");
 const deps_1 = require("./commands/deps");
 const generate_1 = require("./commands/generate");
-const bundleCheck_1 = require("./commands/bundleCheck");
 const libraries_1 = require("./commands/libraries");
 const docs_1 = require("./commands/docs");
 const ai_1 = require("./commands/ai");
 const Operation_1 = require("./operations/Operation");
+const template_1 = require("./commands/template");
 const program = new commander_1.Command();
 // Create a single readline interface
 const rl = readline_1.default.createInterface({
@@ -33,7 +32,7 @@ const cleanup = () => {
 process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
 // Register commands with the same readline interface
-(0, a11yScan_1.handleA11yScan)(program, rl);
+// handleA11yScan(program, rl);
 (0, libraries_1.handleLibraries)(program, rl);
 (0, global_1.handleGlobal)(program, rl);
 (0, config_1.handleConfig)(program, rl);
@@ -41,10 +40,11 @@ process.on('SIGTERM', cleanup);
 (0, help_1.handleHelp)(program, rl);
 (0, deps_1.handleDeps)(program, rl);
 (0, generate_1.handleGenerate)(program, rl);
-(0, bundleCheck_1.handleBundleCheck)(program, rl);
+// handleBundleCheck(program, rl);
 (0, Operation_1.registerOperation)(program, rl);
 (0, docs_1.registerDocsCommand)(program, rl);
 (0, ai_1.setupAICommands)(program, rl); // Update this to accept rl
+(0, template_1.registerTemplateCommands)(program, rl);
 // Parse arguments
 program.parseAsync(process.argv).catch((err) => {
     console.error(chalk_1.default.red('Error:'), err);

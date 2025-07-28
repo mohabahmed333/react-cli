@@ -13,6 +13,7 @@ import { handleLibraries } from './commands/libraries';
  import { registerDocsCommand } from './commands/docs';
 import { setupAICommands } from './commands/ai';
 import { registerOperation } from './operations/Operation';
+import { registerTemplateCommands } from './commands/template';
 
 const program = new Command();
 
@@ -45,6 +46,7 @@ handleGenerate(program, rl);
 registerOperation(program, rl);
 registerDocsCommand(program, rl);
 setupAICommands(program, rl); // Update this to accept rl
+registerTemplateCommands(program, rl);
 
 // Parse arguments
 program.parseAsync(process.argv).catch((err) => {

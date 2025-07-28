@@ -32,6 +32,15 @@ export function handleHelp(program: Command, rl: readline.Interface) {
       console.log('  generate env                    Create environment configuration files');
       console.log('  generate test-utils             Create test utilities for React Testing Library');
       console.log('  generate error-boundary         Create a reusable error boundary component');
+      console.log('  generate template <t> <n>       Generate from saved template');
+      console.log('');
+      console.log(chalk.green('Template Management:'));
+      console.log('  template save <path> <name>     Save feature as reusable template');
+      console.log('  template list                   List all available templates');
+      console.log('  template from <t> <n>           Generate new feature from template');
+      console.log('  template info <name>            Show template information');
+      console.log('  template delete <name>          Delete a template');
+      console.log('');
       console.log('  init                    Initialize project config');
       console.log('  config                  Show current config');
       console.log('\nOptions:');
@@ -61,6 +70,10 @@ export function handleHelp(program: Command, rl: readline.Interface) {
       console.log('  create-page generate env');
       console.log('  create-page generate test-utils');
       console.log('  create-page generate error-boundary');
+      console.log('  create-page generate template orders-feature OrdersFeature');
+      console.log('  create-page template save src/features/orders orders-template --name orders');
+      console.log('  create-page template from orders-template products');
+      console.log('  create-page template list');
       console.log('  create-page libraries                  # Install and setup libraries like Redux, React Router');
       console.log('\nTo use context or redux features, install the required dependencies:');
       console.log('  npm install react-redux @reduxjs/toolkit');

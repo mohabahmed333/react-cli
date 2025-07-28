@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { registerDocsCommand } from './commands/docs';
+import { registerAuditCommand } from './commands/audit';
  
 const program = new Command();
 const rl = readline.createInterface({
@@ -12,6 +13,13 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
-// Rest of the file content remains the same, just converting to TypeScript...
-
+// Register commands
 registerDocsCommand(program, rl);
+registerAuditCommand(program, rl);
+
+// Parse CLI arguments
+program.parseAsync(process.argv).catch((err) => {
+  console.error(chalk.red('Error:'), err);
+  rl.close();
+  process.exit(1);
+});

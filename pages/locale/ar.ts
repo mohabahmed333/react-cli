@@ -1,0 +1,16 @@
+export default {
+    itemName: "اسم المنتج",
+    sku: "رمز المنتج",
+    stock: "المخزون",
+    units: "وحدات",
+    price: "السعر",
+    category: "الفئة",
+    status: "الحالة",
+    actions: "إجراءات",
+    active: "نشط",
+    inactive: "غير نشط",
+    copyItemId: "نسخ معرف المنتج",
+    viewItemDetails: "عرض تفاصيل المنتج",
+    editInventory: "تعديل المخزون",
+    currency: "د.إ",
+}

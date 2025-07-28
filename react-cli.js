@@ -11,6 +11,121 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
+// Default configura// Config commands
+program
+  .command('init')
+    .action(() => {
+    console.log(chalk.cyan.bold('\n📘 CLI Documentation'));
+    console.log('\nCommands:');
+    console.log('  hook <n>       Create a custom hook');
+    console.log('  util <n>       Create a utility function');
+    console.log('  type <n>       Create TypeScript types');
+    console.log('  global            Create multiple global resources');
+    console.log('  page <n>       Create a page with components');
+    console.log('  audit <path>   Run performance audit on a page');
+    console.log('  init              Initialize project config');
+    console.log('  config            Show current config');
+    console.log('\nPerformance Options:');
+    console.log('  --perf-hook       Add performance monitoring hook');
+    console.log('  --perf-monitoring Add performance monitoring wrapper');
+    console.log('  --audit-on-build  Setup performance audit scripts');
+    console.log('\nAudit Options:');
+    console.log('  --url <url>       URL of running application');
+    console.log('  --save-baseline   Save results as baseline');
+    console.log('  --compare-only    Only compare with baseline');
+    console.log('  --threshold <n>   Performance threshold (default: 90)');
+    console.log('\nOptions:');
+    console.log('  --ts              Override TypeScript setting');
+    console.log('  --interactive     Use interactive mode');
+    console.log('\nExamples:');
+    console.log('  create-page hook useAuth --ts');
+    console.log('  create-page page Dashboard --css --test --perf-hook');
+    console.log('  create-page page Dashboard --interactive');
+    console.log('  create-page audit src/pages/Dashboard --save-baseline');
+    console.log('  create-page global --interactive');
+    rl.close();
+  });
+
+program
+  .command('init')
+  .description('Initialize project configuration')
+  .action(async () => {
+    await setupConfiguration();
+    rl.close();
+  });
+
+// Performance audit command
+program
+  .command('audit <path>')
+  .description('Run performance audit on a page component')
+  .option('--url <url>', 'URL of the running application')
+  .option('--save-baseline', 'Save results as performance baseline')
+  .option('--compare-only', 'Only compare with existing baseline')
+  .option('--threshold <number>', 'Performance threshold (default: 90)', '90')
+  .action(async (pagePath, options) => {
+    try {
+      console.log(chalk.cyan('🚀 Performance audit feature'));
+      console.log(chalk.yellow('Note: This feature requires TypeScript build. Please use: npm run build && node dist/cli.js audit <path>'));
+      console.log(chalk.blue('Or install required dependencies: npm install --save-dev lighthouse chrome-launcher'));
+    } catch (error) {
+      console.error('Failed to run performance audit:', error);
+    } finally {
+      rl.close();
+    }
+  });
+
+program
+  .command('config')
+  .description('Show current config')
+  .action(async () => {
+    const config = await setupConfiguration();
+    console.log(chalk.cyan('\nCurrent Config:'));
+    console.log(JSON.stringify(config, null, 2));
+    rl.close();
+  });
+
+// Help command  
+program
+  .command('help')
+  .description('Show help')
+  .action(() => {
+    console.log(chalk.cyan.bold('\n📘 CLI Documentation'));
+    console.log('\nCommands:');
+    console.log('  hook <n>       Create a custom hook');
+    console.log('  util <n>       Create a utility function');
+    console.log('  type <n>       Create TypeScript types');
+    console.log('  global            Create multiple global resources');
+    console.log('  page <n>       Create a page with components');
+    console.log('  audit <path>   Run performance audit on a page');
+    console.log('  init              Initialize project config');
+    console.log('  config            Show current config');
+    console.log('\nPerformance Options:');
+    console.log('  --perf-hook       Add performance monitoring hook');
+    console.log('  --perf-monitoring Add performance monitoring wrapper');
+    console.log('  --audit-on-build  Setup performance audit scripts');
+    console.log('\nAudit Options:');
+    console.log('  --url <url>       URL of running application');
+    console.log('  --save-baseline   Save results as baseline');
+    console.log('  --compare-only    Only compare with baseline');
+    console.log('  --threshold <n>   Performance threshold (default: 90)');
+    console.log('\nOptions:');
+    console.log('  --ts              Override TypeScript setting');
+    console.log('  --interactive     Use interactive mode');
+    console.log('\nExamples:');
+    console.log('  create-page hook useAuth --ts');
+    console.log('  create-page page Dashboard --css --test --perf-hook');
+    console.log('  create-page page Dashboard --interactive');
+    console.log('  create-page audit src/pages/Dashboard --save-baseline');
+    console.log('  create-page global --interactive');
+    rl.close();
+  });
+
+program.parseAsync(process.argv).catch((err) => {
+  console.error(chalk.red('Error:'), err);
+  rl.close();
+  process.exit(1);
+});
+
 // Default configuration
 const defaultConfig = {
   baseDir: 'src',

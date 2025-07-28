@@ -15,6 +15,7 @@ import { registerGenerateType } from './generate/type/generateType';
 import { registerGenerateService } from './generate/generateService';
 import { registerGeneratePage } from './generate/page/generatePage';
 import { registerGenerateContext } from './generate/generateContext';
+import { registerGenerateTemplate } from './generate/generateTemplate';
 
  
 export function handleGenerate(program: Command, rl: readline.Interface) {
@@ -35,4 +36,5 @@ export function handleGenerate(program: Command, rl: readline.Interface) {
   registerGenerateRedux(generate, rl);
   registerGenerateService(generate, rl);
   registerGenerateGuard(generate, rl);
+  registerGenerateTemplate(generate, rl);
 }

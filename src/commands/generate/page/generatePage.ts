@@ -1,3 +1,5 @@
+import { createPerfHook } from '../../../features/performance/hooks/perfHook';
+import { setupBuildAudit } from '../../../features/performance/build/buildAudit';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
@@ -39,6 +41,9 @@ export interface PageOptions extends GenerateOptions {
   next?: boolean;
   intl?: boolean;
   route?: boolean;
+  perfHook?: boolean;
+  perfMonitoring?: boolean;
+  auditOnBuild?: boolean;
   rl?: TReadlineInterface;
 }
 
@@ -67,6 +72,29 @@ export async function createPage(name: string, options: PageOptions, config: CLI
   }
 
   console.log(chalk.green.bold(`\nCreated ${name} page at ${basePath}`));
+
+  // Setup build audit if requested
+  if (options.auditOnBuild) {
+    console.log(chalk.cyan('\n🔧 Setting up performance audit scripts...'));
+    await setupBuildAudit(`${basePath}/${name}`, config);
+  }
+
+  // Show performance monitoring usage tips
+  if (options.perfHook || options.perfMonitoring) {
+    console.log(chalk.cyan('\n📊 Performance Monitoring Tips:'));
+    if (options.perfHook) {
+      console.log(chalk.blue(`  • Use the use${name}Performance hook to measure custom operations`));
+      console.log(chalk.blue(`  • Call startMeasure('operation') and endMeasure('operation')`));
+    }
+    if (options.perfMonitoring) {
+      console.log(chalk.blue(`  • The PerformanceWrapper shows metrics in development mode`));
+      console.log(chalk.blue(`  • Set showMetrics={true} to always display metrics`));
+    }
+    if (options.auditOnBuild) {
+      console.log(chalk.blue('  • Run "npm run perf:audit" to audit this page'));
+      console.log(chalk.blue('  • Run "npm run perf:baseline" to save performance baseline'));
+    }
+  }
 }
 
 async function getFilesToGenerate(name: string, options: PageOptions, config: CLIConfig, basePath: string) {
@@ -160,15 +188,75 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
     });
   }
 
+  // Performance monitoring hook
+  if (options.perfHook) {
+    files.push({
+      type: 'hook',
+      name: `use${name}Performance`,
+      targetDir: `${config.baseDir}/hooks`,
+      useTS,
+      content: generatePerformanceHookContent(name, useTS)
+    });
+  }
+
+  // Performance monitoring component wrapper
+  if (options.perfMonitoring) {
+    files.push({
+      type: 'component',
+      name: `${name}PerformanceWrapper`,
+      targetDir: `${basePath}/components`,
+      useTS,
+      content: generatePerformanceWrapperContent(name, useTS)
+    });
+  }
+
   return files;
 }
 
 // Content generation helper functions
 function generatePageContent(name: string, options: PageOptions, useTS: boolean): string {
   const componentName = convertToValidComponentName(name);
+  const perfHookImport = options.perfHook ? `\nimport { use${name}Performance } from '../hooks/use${name}Performance';` : '';
+  const perfWrapperImport = options.perfMonitoring ? `\nimport ${name}PerformanceWrapper from './components/${name}PerformanceWrapper';` : '';
+  const perfHookUsage = options.perfHook ? `\n  const { startMeasure, endMeasure } = use${name}Performance();` : '';
+  
+  const contentDiv = options.css 
+    ? `<div className={styles.container}>
+      <h1>${componentName} Page</h1>
+    </div>`
+    : `<div>
+      <h1>${componentName} Page</h1>
+    </div>`;
+    
+  const wrappedContent = options.perfMonitoring 
+    ? `<${name}PerformanceWrapper showMetrics={process.env.NODE_ENV === 'development'}>
+      ${contentDiv}
+    </${name}PerformanceWrapper>`
+    : contentDiv;
+  
   return useTS
-    ? `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\ninterface ${componentName}Props {}\n\nconst ${componentName}: React.FC<${componentName}Props> = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${componentName} Page</h1>\n    </div>\n  );\n};\n\nexport default ${componentName};\n`
-    : `import React from 'react';\n${options.css ? `import styles from './${name}.module.css';\n` : ''}\nconst ${componentName} = () => {\n  return (\n    <div${options.css ? ' className={styles.container}' : ''}>\n      <h1>${componentName} Page</h1>\n    </div>\n  );\n};\n\nexport default ${componentName};\n`;
+    ? `import React from 'react';${options.css ? `\nimport styles from './${name}.module.css';` : ''}${perfHookImport}${perfWrapperImport}
+
+interface ${componentName}Props {}
+
+const ${componentName}: React.FC<${componentName}Props> = () => {${perfHookUsage}
+  return (
+    ${wrappedContent}
+  );
+};
+
+export default ${componentName};
+`
+    : `import React from 'react';${options.css ? `\nimport styles from './${name}.module.css';` : ''}${perfHookImport}${perfWrapperImport}
+
+const ${componentName} = () => {${perfHookUsage}
+  return (
+    ${wrappedContent}
+  );
+};
+
+export default ${componentName};
+`;
 }
 
 function generateTestContent(name: string, useTS: boolean): string {
@@ -214,10 +302,329 @@ function generateAIPrompt(name: string, options: PageOptions, useTS: boolean): s
     options.hooks && 'custom hooks',
     options.utils && 'utility functions',
     options.types && 'TypeScript types',
-    options.layout && 'layout file'
+    options.layout && 'layout file',
+    options.perfHook && 'performance monitoring hook',
+    options.perfMonitoring && 'performance monitoring wrapper'
   ].filter(Boolean).join(', ');
 
   return `Create a ${name} page in ${useTS ? 'TypeScript' : 'JavaScript'} with: ${features}`;
+}
+
+function generatePerformanceHookContent(name: string, useTS: boolean): string {
+  const hookName = `use${name}Performance`;
+  
+  return useTS
+    ? `import { useEffect, useCallback, useRef } from 'react';
+
+interface PerformanceMetric {
+  name: string;
+  duration: number;
+  startTime: number;
+  endTime: number;
+}
+
+export const ${hookName} = () => {
+  const metricsRef = useRef<PerformanceMetric[]>([]);
+  const activeMarkersRef = useRef<Set<string>>(new Set());
+
+  const startMeasure = useCallback((marker: string) => {
+    if (typeof performance === 'undefined') return;
+    
+    const markName = \`${name}-\${marker}-start\`;
+    performance.mark(markName);
+    activeMarkersRef.current.add(marker);
+    
+    console.log(\`⏱️ Started measuring \${marker} for ${name}\`);
+  }, []);
+
+  const endMeasure = useCallback((marker: string): PerformanceMetric | null => {
+    if (typeof performance === 'undefined') return null;
+    if (!activeMarkersRef.current.has(marker)) return null;
+    
+    const startMarkName = \`${name}-\${marker}-start\`;
+    const endMarkName = \`${name}-\${marker}-end\`;
+    const measureName = \`${name}-\${marker}-measure\`;
+    
+    try {
+      performance.mark(endMarkName);
+      performance.measure(measureName, startMarkName, endMarkName);
+      
+      const measures = performance.getEntriesByName(measureName);
+      const lastMeasure = measures[measures.length - 1];
+      
+      if (lastMeasure) {
+        const metric: PerformanceMetric = {
+          name: marker,
+          duration: lastMeasure.duration,
+          startTime: lastMeasure.startTime,
+          endTime: lastMeasure.startTime + lastMeasure.duration
+        };
+        
+        metricsRef.current.push(metric);
+        activeMarkersRef.current.delete(marker);
+        
+        console.log(\`⏱️ ${name} \${marker} took \${lastMeasure.duration.toFixed(2)}ms\`);
+        
+        // Clean up
+        performance.clearMarks(startMarkName);
+        performance.clearMarks(endMarkName);
+        performance.clearMeasures(measureName);
+        
+        return metric;
+      }
+    } catch (error) {
+      console.warn(\`Failed to measure \${marker}:\`, error);
+    }
+    
+    return null;
+  }, []);
+
+  const getMetrics = useCallback((): PerformanceMetric[] => {
+    return [...metricsRef.current];
+  }, []);
+
+  // Auto-measure component render
+  useEffect(() => {
+    startMeasure('render');
+    return () => {
+      endMeasure('render');
+    };
+  }, [startMeasure, endMeasure]);
+
+  return {
+    startMeasure,
+    endMeasure,
+    getMetrics
+  };
+};`
+    : `import { useEffect, useCallback, useRef } from 'react';
+
+export const ${hookName} = () => {
+  const metricsRef = useRef([]);
+  const activeMarkersRef = useRef(new Set());
+
+  const startMeasure = useCallback((marker) => {
+    if (typeof performance === 'undefined') return;
+    
+    const markName = \`${name}-\${marker}-start\`;
+    performance.mark(markName);
+    activeMarkersRef.current.add(marker);
+    
+    console.log(\`⏱️ Started measuring \${marker} for ${name}\`);
+  }, []);
+
+  const endMeasure = useCallback((marker) => {
+    if (typeof performance === 'undefined') return null;
+    if (!activeMarkersRef.current.has(marker)) return null;
+    
+    const startMarkName = \`${name}-\${marker}-start\`;
+    const endMarkName = \`${name}-\${marker}-end\`;
+    const measureName = \`${name}-\${marker}-measure\`;
+    
+    try {
+      performance.mark(endMarkName);
+      performance.measure(measureName, startMarkName, endMarkName);
+      
+      const measures = performance.getEntriesByName(measureName);
+      const lastMeasure = measures[measures.length - 1];
+      
+      if (lastMeasure) {
+        const metric = {
+          name: marker,
+          duration: lastMeasure.duration,
+          startTime: lastMeasure.startTime,
+          endTime: lastMeasure.startTime + lastMeasure.duration
+        };
+        
+        metricsRef.current.push(metric);
+        activeMarkersRef.current.delete(marker);
+        
+        console.log(\`⏱️ ${name} \${marker} took \${lastMeasure.duration.toFixed(2)}ms\`);
+        
+        // Clean up
+        performance.clearMarks(startMarkName);
+        performance.clearMarks(endMarkName);
+        performance.clearMeasures(measureName);
+        
+        return metric;
+      }
+    } catch (error) {
+      console.warn(\`Failed to measure \${marker}:\`, error);
+    }
+    
+    return null;
+  }, []);
+
+  const getMetrics = useCallback(() => {
+    return [...metricsRef.current];
+  }, []);
+
+  // Auto-measure component render
+  useEffect(() => {
+    startMeasure('render');
+    return () => {
+      endMeasure('render');
+    };
+  }, [startMeasure, endMeasure]);
+
+  return {
+    startMeasure,
+    endMeasure,
+    getMetrics
+  };
+};`;
+}
+
+function generatePerformanceWrapperContent(name: string, useTS: boolean): string {
+  const componentName = `${name}PerformanceWrapper`;
+  const hookName = `use${name}Performance`;
+  
+  return useTS
+    ? `import React, { useEffect, useState } from 'react';
+import { ${hookName} } from '../../hooks/${hookName}';
+
+interface ${componentName}Props {
+  children: React.ReactNode;
+  showMetrics?: boolean;
+}
+
+interface PerformanceMetric {
+  name: string;
+  duration: number;
+  startTime: number;
+  endTime: number;
+}
+
+const ${componentName}: React.FC<${componentName}Props> = ({ 
+  children, 
+  showMetrics = false 
+}) => {
+  const { getMetrics, startMeasure, endMeasure } = ${hookName}();
+  const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
+
+  useEffect(() => {
+    if (showMetrics) {
+      const interval = setInterval(() => {
+        setMetrics(getMetrics());
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [showMetrics, getMetrics]);
+
+  const handleInteractionStart = (event: string) => {
+    startMeasure(\`interaction-\${event}\`);
+  };
+
+  const handleInteractionEnd = (event: string) => {
+    endMeasure(\`interaction-\${event}\`);
+  };
+
+  return (
+    <div 
+      className="${name.toLowerCase()}-performance-wrapper"
+      onMouseEnter={() => handleInteractionStart('hover')}
+      onMouseLeave={() => handleInteractionEnd('hover')}
+      onClick={() => {
+        handleInteractionStart('click');
+        setTimeout(() => handleInteractionEnd('click'), 0);
+      }}
+    >
+      {children}
+      
+      {showMetrics && metrics.length > 0 && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 10,
+            right: 10,
+            background: 'rgba(0, 0, 0, 0.8)',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '5px',
+            fontSize: '12px',
+            zIndex: 1000,
+            maxWidth: '300px'
+          }}
+        >
+          <h4>⏱️ Performance Metrics</h4>
+          {metrics.slice(-5).map((metric, index) => (
+            <div key={index}>
+              {metric.name}: {metric.duration.toFixed(2)}ms
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ${componentName};`
+    : `import React, { useEffect, useState } from 'react';
+import { ${hookName} } from '../../hooks/${hookName}';
+
+const ${componentName} = ({ children, showMetrics = false }) => {
+  const { getMetrics, startMeasure, endMeasure } = ${hookName}();
+  const [metrics, setMetrics] = useState([]);
+
+  useEffect(() => {
+    if (showMetrics) {
+      const interval = setInterval(() => {
+        setMetrics(getMetrics());
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [showMetrics, getMetrics]);
+
+  const handleInteractionStart = (event) => {
+    startMeasure(\`interaction-\${event}\`);
+  };
+
+  const handleInteractionEnd = (event) => {
+    endMeasure(\`interaction-\${event}\`);
+  };
+
+  return (
+    <div 
+      className="${name.toLowerCase()}-performance-wrapper"
+      onMouseEnter={() => handleInteractionStart('hover')}
+      onMouseLeave={() => handleInteractionEnd('hover')}
+      onClick={() => {
+        handleInteractionStart('click');
+        setTimeout(() => handleInteractionEnd('click'), 0);
+      }}
+    >
+      {children}
+      
+      {showMetrics && metrics.length > 0 && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 10,
+            right: 10,
+            background: 'rgba(0, 0, 0, 0.8)',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '5px',
+            fontSize: '12px',
+            zIndex: 1000,
+            maxWidth: '300px'
+          }}
+        >
+          <h4>⏱️ Performance Metrics</h4>
+          {metrics.slice(-5).map((metric, index) => (
+            <div key={index}>
+              {metric.name}: {metric.duration.toFixed(2)}ms
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ${componentName};`;
 }
 
 export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
@@ -237,6 +644,9 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
     .option('--layout', 'Include layout file')
     .option('--route', 'Generate route automatically (default: true for React projects)')
     .option('--no-route', 'Skip route generation')
+    .option('--perf-hook', 'Add performance monitoring hook')
+    .option('--perf-monitoring', 'Add performance monitoring components')
+    .option('--audit-on-build', 'Run performance audit after build')
     .option('-i, --interactive', 'Use interactive mode')
     .option('--ai', 'Use AI to generate the page code')
     .action(async (name: string | undefined, folder: string | undefined, options: PageOptions) => {
@@ -326,6 +736,21 @@ export function registerGeneratePage(generate: Command, rl: ReadlineInterface) {
               question: 'Generate route automatically? (y/n): ',
               condition: config.projectType === 'react',
               handler: (answer: string) => options.route = answer.toLowerCase() === 'y'
+            },
+            {
+              key: 'perfHook',
+              question: 'Add performance monitoring hook? (y/n): ',
+              handler: (answer: string) => options.perfHook = answer.toLowerCase() === 'y'
+            },
+            {
+              key: 'perfMonitoring',
+              question: 'Add performance monitoring components? (y/n): ',
+              handler: (answer: string) => options.perfMonitoring = answer.toLowerCase() === 'y'
+            },
+            {
+              key: 'auditOnBuild',
+              question: 'Run performance audit after build? (y/n): ',
+              handler: (answer: string) => options.auditOnBuild = answer.toLowerCase() === 'y'
             }
           ];
 

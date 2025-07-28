@@ -18,7 +18,10 @@
     "build:esm": "tsc -p tsconfig.esm.json",
     "build": "npm run build:cjs && npm run build:esm",
     "re": "node dist/index.js",
-    "watch": "tsc -w"
+    "watch": "tsc -w",
+    "perf:audit": "vite build && vite preview & sleep 5 && react-cli audit src/pages/TestPage --url http://localhost:3000 && pkill -f \"vite preview\"",
+    "perf:baseline": "vite build && vite preview & sleep 5 && react-cli audit src/pages/TestPage --url http://localhost:3000 && pkill -f \"vite preview\" --save-baseline",
+    "perf:compare": "react-cli audit src/pages/TestPage --url http://localhost:3000 --compare-only"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

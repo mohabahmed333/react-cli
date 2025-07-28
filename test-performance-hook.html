@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Hook Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Simplified version of our performance hook for testing
+        const useTestPagePerformance = () => {
+            const [metrics, setMetrics] = React.useState([]);
+            const metricsRef = React.useRef([]);
+            const activeMarkersRef = React.useRef(new Set());
+
+            const startMeasure = React.useCallback((marker) => {
+                if (typeof performance === 'undefined') return;
+                
+                const markName = `${marker}-start`;
+                performance.mark(markName);
+                activeMarkersRef.current.add(marker);
+                
+                console.log(`⏱️ Started measuring: ${marker}`);
+            }, []);
+
+            const endMeasure = React.useCallback((marker) => {
+                if (typeof performance === 'undefined') return null;
+                if (!activeMarkersRef.current.has(marker)) return null;
+                
+                const startMarkName = `${marker}-start`;
+                const endMarkName = `${marker}-end`;
+                const measureName = `${marker}-measure`;
+                
+                try {
+                    performance.mark(endMarkName);
+                    performance.measure(measureName, startMarkName, endMarkName);
+                    
+                    const measures = performance.getEntriesByName(measureName);
+                    const lastMeasure = measures[measures.length - 1];
+                    
+                    if (lastMeasure) {
+                        const metric = {
+                            name: marker,
+                            duration: lastMeasure.duration,
+                            startTime: lastMeasure.startTime,
+                            endTime: lastMeasure.startTime + lastMeasure.duration
+                        };
+                        
+                        metricsRef.current.push(metric);
+                        activeMarkersRef.current.delete(marker);
+                        setMetrics([...metricsRef.current]);
+                        
+                        console.log(`⏱️ ${marker} took ${lastMeasure.duration.toFixed(2)}ms`);
+                        
+                        // Clean up
+                        performance.clearMarks(startMarkName);
+                        performance.clearMarks(endMarkName);
+                        performance.clearMeasures(measureName);
+                        
+                        return metric;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to measure ${marker}:`, error);
+                }
+                
+                return null;
+            }, []);
+
+            const getMetrics = React.useCallback(() => {
+                return [...metricsRef.current];
+            }, []);
+
+            return {
+                startMeasure,
+                endMeasure,
+                getMetrics,
+                metrics
+            };
+        };
+
+        const TestComponent = () => {
+            const { startMeasure, endMeasure, getMetrics, metrics } = useTestPagePerformance();
+            const [isLoading, setIsLoading] = React.useState(false);
+
+            React.useEffect(() => {
+                // Auto-measure component render
+                startMeasure('component-render');
+                return () => {
+                    endMeasure('component-render');
+                };
+            }, [startMeasure, endMeasure]);
+
+            const handleAsyncOperation = async () => {
+                setIsLoading(true);
+                startMeasure('async-operation');
+                
+                // Simulate async work
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                endMeasure('async-operation');
+                setIsLoading(false);
+            };
+
+            const handleQuickOperation = () => {
+                startMeasure('quick-operation');
+                
+                // Simulate some quick work
+                let sum = 0;
+                for (let i = 0; i < 1000000; i++) {
+                    sum += i;
+                }
+                
+                endMeasure('quick-operation');
+                console.log('Quick operation result:', sum);
+            };
+
+            return React.createElement('div', { style: { padding: '20px', fontFamily: 'Arial' } },
+                React.createElement('h1', null, '🚀 Performance Hook Test'),
+                React.createElement('p', null, 'Open the browser console to see performance measurements!'),
+                
+                React.createElement('div', { style: { marginBottom: '20px' } },
+                    React.createElement('button', {
+                        onClick: handleAsyncOperation,
+                        disabled: isLoading,
+                        style: { margin: '10px', padding: '10px 20px' }
+                    }, isLoading ? 'Loading...' : 'Test Async Operation (1s)'),
+                    
+                    React.createElement('button', {
+                        onClick: handleQuickOperation,
+                        style: { margin: '10px', padding: '10px 20px' }
+                    }, 'Test Quick Operation')
+                ),
+                
+                React.createElement('div', { style: { background: '#f0f0f0', padding: '15px', borderRadius: '5px' } },
+                    React.createElement('h3', null, '📊 Performance Metrics:'),
+                    metrics.length === 0 
+                        ? React.createElement('p', null, 'No metrics yet. Click the buttons above!')
+                        : metrics.map((metric, index) => 
+                            React.createElement('div', { key: index, style: { margin: '5px 0' } },
+                                `${metric.name}: ${metric.duration.toFixed(2)}ms`
+                            )
+                        )
+                )
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(TestComponent));
+    </script>
+</body>
+</html>
