@@ -134,7 +134,7 @@ export function listTemplates(): TemplateInfo[] {
 }
 
 /**
- * Apply naming conventions to content
+ * Apply naming conventions to content with enhanced pattern matching
  */
 export function applyNamingConventions(
   content: string, 
@@ -144,7 +144,7 @@ export function applyNamingConventions(
 ): string {
   let transformed = content;
   
-  // Apply all naming conventions
+  // Apply transformations for the main name
   Object.entries(namingConventions).forEach(([key, fn]) => {
     const oldVal = fn(oldName);
     const newVal = fn(newName);
@@ -152,11 +152,200 @@ export function applyNamingConventions(
     // Skip if the transformed values are the same
     if (oldVal === newVal) return;
     
-    // Create regex with word boundaries for better matching
-    const regex = new RegExp(`\\b${escapeRegExp(oldVal)}\\b`, preserveCase ? 'g' : 'gi');
-    transformed = transformed.replace(regex, newVal);
+    transformed = applyPatternTransformations(transformed, oldVal, newVal, preserveCase);
   });
 
+  // Also apply transformations for singular forms
+  // If oldName is plural (ends with 's'), also transform the singular form
+  const singularOld = oldName.endsWith('s') ? oldName.slice(0, -1) : oldName;
+  const singularNew = newName.endsWith('s') ? newName.slice(0, -1) : newName;
+  
+  if (singularOld !== oldName && singularNew !== newName) {
+    Object.entries(namingConventions).forEach(([key, fn]) => {
+      const oldVal = fn(singularOld);
+      const newVal = fn(singularNew);
+      
+      if (oldVal !== newVal) {
+        transformed = applyPatternTransformations(transformed, oldVal, newVal, preserveCase);
+      }
+    });
+  }
+
+  return transformed;
+}
+
+/**
+ * Apply comprehensive pattern transformations for better name matching
+ */
+function applyPatternTransformations(
+  content: string,
+  oldVal: string,
+  newVal: string,
+  preserveCase: boolean
+): string {
+  let transformed = content;
+  const flags = preserveCase ? 'g' : 'gi';
+  
+  // Get all naming convention variants
+  const pascalOld = namingConventions.pascal(oldVal);
+  const pascalNew = namingConventions.pascal(newVal);
+  const camelOld = namingConventions.camel(oldVal);
+  const camelNew = namingConventions.camel(newVal);
+  const constantOld = namingConventions.constant(oldVal);
+  const constantNew = namingConventions.constant(newVal);
+  
+  // Apply multiple passes for comprehensive transformation
+  
+  // PASS 1: Exact word boundaries
+  if (oldVal !== newVal) {
+    const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(oldVal)}\\b`, flags);
+    transformed = transformed.replace(wordBoundaryRegex, newVal);
+  }
+  
+  // PASS 2: PascalCase patterns
+  if (pascalOld !== pascalNew && pascalOld.length > 0) {
+    // Exact PascalCase matches
+    const exactPascalRegex = new RegExp(`\\b${escapeRegExp(pascalOld)}\\b`, flags);
+    transformed = transformed.replace(exactPascalRegex, pascalNew);
+    
+    // Type prefixes: TOrder → TCustomer, IOrder → ICustomer
+    const typePrefixRegex = new RegExp(`\\b([TI])${escapeRegExp(pascalOld)}\\b`, flags);
+    transformed = transformed.replace(typePrefixRegex, `$1${pascalNew}`);
+    
+    // Compound words at start: OrderStatus → CustomerStatus
+    const compoundStartRegex = new RegExp(`\\b${escapeRegExp(pascalOld)}([A-Z][a-z])`, flags);
+    transformed = transformed.replace(compoundStartRegex, `${pascalNew}$1`);
+    
+    // Compound words at end: GetOrderColumns → GetCustomerColumns
+    const compoundEndRegex = new RegExp(`\\b([A-Z][a-z]+)${escapeRegExp(pascalOld)}\\b`, flags);
+    transformed = transformed.replace(compoundEndRegex, `$1${pascalNew}`);
+  }
+  
+  // PASS 3: camelCase patterns
+  if (camelOld !== camelNew && camelOld.length > 0) {
+    // Exact camelCase matches
+    const exactCamelRegex = new RegExp(`\\b${escapeRegExp(camelOld)}\\b`, flags);
+    transformed = transformed.replace(exactCamelRegex, camelNew);
+    
+    // camelCase compound words: orderModal → customerModal
+    const camelCompoundRegex = new RegExp(`\\b${escapeRegExp(camelOld)}([A-Z][a-z])`, flags);
+    transformed = transformed.replace(camelCompoundRegex, `${camelNew}$1`);
+    
+    // Variables with camelCase: selectedOrder → selectedCustomer
+    const selectedRegex = new RegExp(`\\bselected${escapeRegExp(pascalOld)}\\b`, flags);
+    transformed = transformed.replace(selectedRegex, `selected${pascalNew}`);
+    
+    // Property access: .orderModal → .customerModal
+    const propertyRegex = new RegExp(`\\.${escapeRegExp(camelOld)}\\b`, flags);
+    transformed = transformed.replace(propertyRegex, `.${camelNew}`);
+  }
+  
+  // PASS 4: Function patterns with comprehensive prefixes
+  if (pascalOld !== pascalNew && pascalOld.length > 0) {
+    const functionPrefixes = ['use', 'get', 'set', 'handle', 'on', 'is', 'has', 'can', 'should', 'will', 'open', 'close', 'toggle', 'show', 'hide', 'create', 'update', 'delete', 'find', 'search'];
+    
+    functionPrefixes.forEach(prefix => {
+      // Function names: useOrderModal → useCustomerModal
+      const funcRegex = new RegExp(`\\b${prefix}${escapeRegExp(pascalOld)}([A-Z][a-z]+|\\b)`, flags);
+      transformed = transformed.replace(funcRegex, `${prefix}${pascalNew}$1`);
+      
+      // Also handle camelCase prefix: useOrderModal where 'use' + 'Order' + 'Modal'
+      const camelFuncRegex = new RegExp(`\\b${prefix}${escapeRegExp(pascalOld)}([A-Z])`, flags);
+      transformed = transformed.replace(camelFuncRegex, `${prefix}${pascalNew}$1`);
+    });
+  }
+  
+  // PASS 5: Interface and type suffixes
+  if (pascalOld !== pascalNew && pascalOld.length > 0) {
+    const commonSuffixes = ['Props', 'State', 'Config', 'Options', 'Data', 'Response', 'Request', 'Type', 'Interface', 'Modal', 'ModalState', 'Columns', 'ColumnsProps', 'Handler', 'Service', 'Repository', 'Controller'];
+    
+    commonSuffixes.forEach(suffix => {
+      const suffixRegex = new RegExp(`\\b${escapeRegExp(pascalOld)}${suffix}\\b`, flags);
+      transformed = transformed.replace(suffixRegex, `${pascalNew}${suffix}`);
+    });
+  }
+  
+  // PASS 6: ID and identifier patterns
+  if (pascalOld !== pascalNew && pascalOld.length > 0) {
+    // Handle orderId → customerId patterns
+    const idRegex = new RegExp(`\\b${escapeRegExp(camelOld)}Id\\b`, flags);
+    transformed = transformed.replace(idRegex, `${camelNew}Id`);
+    
+    // Handle OrderId → CustomerId patterns
+    const IdRegex = new RegExp(`\\b${escapeRegExp(pascalOld)}Id\\b`, flags);
+    transformed = transformed.replace(IdRegex, `${pascalNew}Id`);
+    
+    // Handle object property patterns: .orderId → .customerId
+    const propIdRegex = new RegExp(`\\.${escapeRegExp(camelOld)}Id\\b`, flags);
+    transformed = transformed.replace(propIdRegex, `.${camelNew}Id`);
+    
+    // Handle JSON key patterns: "orderId": → "customerId":
+    const jsonIdRegex = new RegExp(`"${escapeRegExp(camelOld)}Id"`, flags);
+    transformed = transformed.replace(jsonIdRegex, `"${camelNew}Id"`);
+  }
+  
+  // PASS 7: Constant and enum patterns
+  if (constantOld !== constantNew && constantOld.length > 0) {
+    // Enum constants: ORDER_STATUS → CUSTOMER_STATUS
+    const enumRegex = new RegExp(`\\b${escapeRegExp(constantOld)}_([A-Z_]+)\\b`, flags);
+    transformed = transformed.replace(enumRegex, `${constantNew}_$1`);
+    
+    // Standalone constants
+    const constantRegex = new RegExp(`\\b${escapeRegExp(constantOld)}\\b`, flags);
+    transformed = transformed.replace(constantRegex, constantNew);
+  }
+  
+  // PASS 8: File path and import patterns
+  if (pascalOld !== pascalNew) {
+    // Import paths: './types/Orders' → './types/Customers'
+    const pathRegex = new RegExp(`(['"]\\.?\\/[^'"]*\\/)${escapeRegExp(pascalOld)}(['"\\s])`, flags);
+    transformed = transformed.replace(pathRegex, `$1${pascalNew}$2`);
+    
+    // Import statements: from './useOrderModal' → from './useCustomerModal'
+    const importRegex = new RegExp(`(from\\s+['"]\\.\\/)${escapeRegExp(camelOld)}(['"\\s])`, flags);
+    transformed = transformed.replace(importRegex, `$1${camelNew}$2`);
+  }
+  
+  // PASS 9: JSX and component patterns
+  if (pascalOld !== pascalNew && pascalOld.length > 0) {
+    // Component names in JSX: <OrderModal> → <CustomerModal>
+    const jsxRegex = new RegExp(`<${escapeRegExp(pascalOld)}([\\s>])`, flags);
+    transformed = transformed.replace(jsxRegex, `<${pascalNew}$1`);
+    
+    const jsxCloseRegex = new RegExp(`<\\/${escapeRegExp(pascalOld)}>`, flags);
+    transformed = transformed.replace(jsxCloseRegex, `</${pascalNew}>`);
+  }
+  
+  // PASS 10: Additional comprehensive patterns
+  if (pascalOld !== pascalNew && pascalOld.length > 0) {
+    // Variable declarations: const order = → const customer =
+    const varRegex = new RegExp(`\\b(const|let|var)\\s+${escapeRegExp(camelOld)}\\b`, flags);
+    transformed = transformed.replace(varRegex, `$1 ${camelNew}`);
+    
+    // Function parameters: (order: TOrder) → (customer: TCustomer)
+    const paramRegex = new RegExp(`\\(${escapeRegExp(camelOld)}:`, flags);
+    transformed = transformed.replace(paramRegex, `(${camelNew}:`);
+    
+    // Array/object destructuring: { order } → { customer }
+    const destructureRegex = new RegExp(`\\{\\s*${escapeRegExp(camelOld)}\\s*\\}`, flags);
+    transformed = transformed.replace(destructureRegex, `{ ${camelNew} }`);
+    
+    // Property access chains: order.id → customer.id
+    const chainRegex = new RegExp(`\\b${escapeRegExp(camelOld)}\\.`, flags);
+    transformed = transformed.replace(chainRegex, `${camelNew}.`);
+    
+    // Template literals and strings: "Order ID" → "Customer ID"
+    const stringRegex = new RegExp(`"([^"]*?)${escapeRegExp(pascalOld)}([^"]*?)"`, flags);
+    transformed = transformed.replace(stringRegex, `"$1${pascalNew}$2"`);
+    
+    const singleStringRegex = new RegExp(`'([^']*?)${escapeRegExp(pascalOld)}([^']*?)'`, flags);
+    transformed = transformed.replace(singleStringRegex, `'$1${pascalNew}$2'`);
+    
+    // Accessibility keys and IDs: accessorKey: "orderId" → accessorKey: "customerId"
+    const accessorRegex = new RegExp(`(accessorKey|key|id):\\s*"${escapeRegExp(camelOld)}"`, flags);
+    transformed = transformed.replace(accessorRegex, `$1: "${camelNew}"`);
+  }
+  
   return transformed;
 }
 
@@ -168,14 +357,40 @@ function escapeRegExp(string: string): string {
 }
 
 /**
- * Apply naming conventions to a filename
+ * Apply naming conventions to a filename with enhanced file-specific patterns
  */
 export function transformFileName(
   fileName: string, 
   oldName: string, 
   newName: string
 ): string {
-  return applyNamingConventions(fileName, oldName, newName);
+  let transformed = fileName;
+  
+  // Apply the standard naming conventions
+  transformed = applyNamingConventions(transformed, oldName, newName);
+  
+  // Apply additional file-specific transformations
+  const pascalOld = namingConventions.pascal(oldName);
+  const pascalNew = namingConventions.pascal(newName);
+  const camelOld = namingConventions.camel(oldName);
+  const camelNew = namingConventions.camel(newName);
+  
+  // Handle file extensions and compound names
+  if (pascalOld !== pascalNew) {
+    // Transform file names like "useOrderModal.ts" → "useCustomerModal.ts"
+    const fileRegex = new RegExp(`^use${escapeRegExp(pascalOld)}([A-Z].*)$`, 'i');
+    transformed = transformed.replace(fileRegex, `use${pascalNew}$1`);
+    
+    // Transform file names like "OrderData.ts" → "CustomerData.ts"
+    const dataFileRegex = new RegExp(`^${escapeRegExp(pascalOld)}([A-Z].*)$`, 'i');
+    transformed = transformed.replace(dataFileRegex, `${pascalNew}$1`);
+    
+    // Transform file names like "getOrderColumns.ts" → "getCustomerColumns.ts"
+    const funcFileRegex = new RegExp(`^(get|set|create|update|delete)${escapeRegExp(pascalOld)}([A-Z].*)$`, 'i');
+    transformed = transformed.replace(funcFileRegex, `$1${pascalNew}$2`);
+  }
+  
+  return transformed;
 }
 
 /**

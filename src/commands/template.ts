@@ -317,4 +317,61 @@ export function registerTemplateCommands(program: Command, rl: readline.Interfac
         rl.close();
       }
     });
+
+  // Validate template transformations command
+  template
+    .command('validate <generatedPath> <originalName> <newName>')
+    .description('Validate that all old naming has been properly transformed in generated feature')
+    .option('--fix', 'Attempt to fix found issues automatically')
+    .option('--detailed', 'Show detailed analysis of each file')
+    .action(async (generatedPath: string, originalName: string, newName: string, options: any) => {
+      try {
+        const { validateTransformations } = require('../utils/template-validator');
+        
+        console.log(chalk.cyan.bold('\n🔍 Template Transformation Validation'));
+        console.log(chalk.gray(`Checking: ${generatedPath}`));
+        console.log(chalk.gray(`Original: ${originalName} → New: ${newName}\n`));
+
+        const validationResult = await validateTransformations(
+          path.resolve(generatedPath),
+          originalName,
+          newName,
+          {
+            detailed: options.detailed,
+            fix: options.fix
+          }
+        );
+
+        if (validationResult.success) {
+          console.log(chalk.green.bold('✅ All transformations completed successfully!'));
+          console.log(chalk.cyan(`📄 Scanned ${validationResult.filesScanned} files`));
+        } else {
+          console.log(chalk.red.bold('❌ Found naming issues:'));
+          console.log(chalk.yellow(`📄 Issues found in ${validationResult.issuesFound} locations`));
+          
+          if (options.detailed) {
+            validationResult.issues.forEach((issue: any) => {
+              console.log(chalk.red(`\n📁 ${issue.file}:`));
+              issue.patterns.forEach((pattern: any) => {
+                console.log(chalk.yellow(`   Line ${pattern.line}: ${pattern.oldPattern} → should be ${pattern.suggested}`));
+                console.log(chalk.gray(`   Context: ${pattern.context}`));
+              });
+            });
+          }
+
+          if (options.fix) {
+            console.log(chalk.blue('\n🔧 Fixes have been applied automatically!'));
+            console.log(chalk.cyan('Re-run the validate command to see remaining issues (if any).'));
+          } else {
+            console.log(chalk.cyan('\nTo fix automatically, run:'));
+            console.log(chalk.white(`  npx react-cli template validate "${generatedPath}" ${originalName} ${newName} --fix`));
+          }
+        }
+
+      } catch (error) {
+        console.error(chalk.red('Error validating transformations:'), error);
+      } finally {
+        rl.close();
+      }
+    });
 } 

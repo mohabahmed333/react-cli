@@ -77,6 +77,7 @@ function handleHelp(program, rl) {
         console.log('  create-page template save src/features/orders orders-template --name orders');
         console.log('  create-page template from orders-template products');
         console.log('  create-page template list');
+        console.log('  create-page template validate app/products orders products --detailed');
         console.log('  create-page libraries                  # Install and setup libraries like Redux, React Router');
         console.log('\nTo use context or redux features, install the required dependencies:');
         console.log('  npm install react-redux @reduxjs/toolkit');
