@@ -144,19 +144,7 @@ export function applyNamingConventions(
 ): string {
   let transformed = content;
   
-  // Apply transformations for the main name
-  Object.entries(namingConventions).forEach(([key, fn]) => {
-    const oldVal = fn(oldName);
-    const newVal = fn(newName);
-    
-    // Skip if the transformed values are the same
-    if (oldVal === newVal) return;
-    
-    transformed = applyPatternTransformations(transformed, oldVal, newVal, preserveCase);
-  });
-
-  // Also apply transformations for singular forms
-  // If oldName is plural (ends with 's'), also transform the singular form
+  // PRIORITY: Apply singular form transformations FIRST (more specific)
   const singularOld = oldName.endsWith('s') ? oldName.slice(0, -1) : oldName;
   const singularNew = newName.endsWith('s') ? newName.slice(0, -1) : newName;
   
@@ -170,6 +158,17 @@ export function applyNamingConventions(
       }
     });
   }
+
+  // Then apply transformations for the main (plural) name
+  Object.entries(namingConventions).forEach(([key, fn]) => {
+    const oldVal = fn(oldName);
+    const newVal = fn(newName);
+    
+    // Skip if the transformed values are the same
+    if (oldVal === newVal) return;
+    
+    transformed = applyPatternTransformations(transformed, oldVal, newVal, preserveCase);
+  });
 
   return transformed;
 }
@@ -366,29 +365,52 @@ export function transformFileName(
 ): string {
   let transformed = fileName;
   
-  // Apply the standard naming conventions
-  transformed = applyNamingConventions(transformed, oldName, newName);
-  
-  // Apply additional file-specific transformations
+  // Get all naming convention variants
   const pascalOld = namingConventions.pascal(oldName);
   const pascalNew = namingConventions.pascal(newName);
   const camelOld = namingConventions.camel(oldName);
   const camelNew = namingConventions.camel(newName);
   
-  // Handle file extensions and compound names
-  if (pascalOld !== pascalNew) {
-    // Transform file names like "useOrderModal.ts" → "useCustomerModal.ts"
-    const fileRegex = new RegExp(`^use${escapeRegExp(pascalOld)}([A-Z].*)$`, 'i');
-    transformed = transformed.replace(fileRegex, `use${pascalNew}$1`);
-    
-    // Transform file names like "OrderData.ts" → "CustomerData.ts"
-    const dataFileRegex = new RegExp(`^${escapeRegExp(pascalOld)}([A-Z].*)$`, 'i');
-    transformed = transformed.replace(dataFileRegex, `${pascalNew}$1`);
-    
-    // Transform file names like "getOrderColumns.ts" → "getCustomerColumns.ts"
-    const funcFileRegex = new RegExp(`^(get|set|create|update|delete)${escapeRegExp(pascalOld)}([A-Z].*)$`, 'i');
-    transformed = transformed.replace(funcFileRegex, `$1${pascalNew}$2`);
+  // Handle both plural and singular forms for filenames
+  const singularOld = oldName.endsWith('s') ? oldName.slice(0, -1) : oldName;
+  const singularNew = newName.endsWith('s') ? newName.slice(0, -1) : newName;
+  const singularPascalOld = namingConventions.pascal(singularOld);
+  const singularPascalNew = namingConventions.pascal(singularNew);
+  
+  // Apply comprehensive filename transformations
+  
+  // 1. Handle hook files with singular form: useOrderModal.ts → useProductModal.ts
+  if (singularPascalOld !== singularPascalNew) {
+    const hookFileRegex = new RegExp(`^use${escapeRegExp(singularPascalOld)}([A-Z].*)?\\.(ts|tsx|js|jsx)$`, 'i');
+    if (hookFileRegex.test(transformed)) {
+      transformed = transformed.replace(hookFileRegex, `use${singularPascalNew}$1.$2`);
+    }
   }
+  
+  // 2. Handle data/type files: OrderData.ts → ProductData.ts, Orders.ts → Products.ts
+  if (pascalOld !== pascalNew) {
+    const dataFileRegex = new RegExp(`^${escapeRegExp(pascalOld)}([A-Z].*)?\\.(ts|tsx|js|jsx)$`, 'i');
+    if (dataFileRegex.test(transformed)) {
+      transformed = transformed.replace(dataFileRegex, `${pascalNew}$1.$2`);
+    }
+  }
+  
+  // 3. Handle singular type files: Order.ts → Product.ts
+  if (singularPascalOld !== singularPascalNew && transformed !== transformed.replace(new RegExp(`^${escapeRegExp(singularPascalOld)}\\.(ts|tsx|js|jsx)$`, 'i'), `${singularPascalNew}.$1`)) {
+    const singularFileRegex = new RegExp(`^${escapeRegExp(singularPascalOld)}\\.(ts|tsx|js|jsx)$`, 'i');
+    transformed = transformed.replace(singularFileRegex, `${singularPascalNew}.$1`);
+  }
+  
+  // 4. Handle function files: getOrderColumns.ts → getProductColumns.ts
+  if (singularPascalOld !== singularPascalNew) {
+    const funcFileRegex = new RegExp(`^(get|set|create|update|delete|handle)${escapeRegExp(singularPascalOld)}([A-Z].*)?\\.(ts|tsx|js|jsx)$`, 'i');
+    if (funcFileRegex.test(transformed)) {
+      transformed = transformed.replace(funcFileRegex, `$1${singularPascalNew}$2.$3`);
+    }
+  }
+  
+  // 5. Apply the standard content naming conventions as fallback
+  transformed = applyNamingConventions(transformed, oldName, newName);
   
   return transformed;
 }
