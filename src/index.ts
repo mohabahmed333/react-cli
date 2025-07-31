@@ -14,6 +14,8 @@ import { handleLibraries } from './commands/libraries';
 import { setupAICommands } from './commands/ai';
 import { registerOperation } from './operations/Operation';
 import { registerTemplateCommands } from './commands/template';
+import { CommandRegistrar } from './services/CommandRegistrar';
+import { interactiveMenu } from './services/InteractiveMenu';
 
 const program = new Command();
 
@@ -48,8 +50,26 @@ registerDocsCommand(program, rl);
 setupAICommands(program, rl); // Update this to accept rl
 registerTemplateCommands(program, rl);
 
-// Parse arguments
-program.parseAsync(process.argv).catch((err) => {
-  console.error(chalk.red('Error:'), err);
-  cleanup();
-});
+// Register commands with interactive system
+CommandRegistrar.registerMainCommands(program, rl);
+
+// Check if any arguments are provided beyond node and script name
+const hasArguments = process.argv.length > 2;
+
+if (!hasArguments) {
+  // No arguments provided - show interactive menu
+  console.log(chalk.cyan('🚀 Starting Interactive Mode...'));
+  console.log(chalk.gray('Tip: You can still use traditional commands like "npm run re help" or "yarn re libraries"\n'));
+  
+  // Start interactive menu
+  interactiveMenu.showMainMenu().catch((err) => {
+    console.error(chalk.red('Error in interactive mode:'), err);
+    cleanup();
+  });
+} else {
+  // Arguments provided - use traditional CLI parsing
+  program.parseAsync(process.argv).catch((err) => {
+    console.error(chalk.red('Error:'), err);
+    cleanup();
+  });
+}

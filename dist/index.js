@@ -17,6 +17,8 @@ const docs_1 = require("./commands/docs");
 const ai_1 = require("./commands/ai");
 const Operation_1 = require("./operations/Operation");
 const template_1 = require("./commands/template");
+const CommandRegistrar_1 = require("./services/CommandRegistrar");
+const InteractiveMenu_1 = require("./services/InteractiveMenu");
 const program = new commander_1.Command();
 // Create a single readline interface
 const rl = readline_1.default.createInterface({
@@ -45,8 +47,24 @@ process.on('SIGTERM', cleanup);
 (0, docs_1.registerDocsCommand)(program, rl);
 (0, ai_1.setupAICommands)(program, rl); // Update this to accept rl
 (0, template_1.registerTemplateCommands)(program, rl);
-// Parse arguments
-program.parseAsync(process.argv).catch((err) => {
-    console.error(chalk_1.default.red('Error:'), err);
-    cleanup();
-});
+// Register commands with interactive system
+CommandRegistrar_1.CommandRegistrar.registerMainCommands(program, rl);
+// Check if any arguments are provided beyond node and script name
+const hasArguments = process.argv.length > 2;
+if (!hasArguments) {
+    // No arguments provided - show interactive menu
+    console.log(chalk_1.default.cyan('🚀 Starting Interactive Mode...'));
+    console.log(chalk_1.default.gray('Tip: You can still use traditional commands like "npm run re help" or "yarn re libraries"\n'));
+    // Start interactive menu
+    InteractiveMenu_1.interactiveMenu.showMainMenu().catch((err) => {
+        console.error(chalk_1.default.red('Error in interactive mode:'), err);
+        cleanup();
+    });
+}
+else {
+    // Arguments provided - use traditional CLI parsing
+    program.parseAsync(process.argv).catch((err) => {
+        console.error(chalk_1.default.red('Error:'), err);
+        cleanup();
+    });
+}
