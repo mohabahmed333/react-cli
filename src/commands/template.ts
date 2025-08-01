@@ -8,7 +8,7 @@ import {
   generateFromTemplate,
   templateExists 
 } from '../utils/template';
-import { askQuestion } from '../utils/prompt';
+import { askQuestion, askChoice } from '../utils/prompt';
 import { setupConfiguration } from '../utils/config';
 
 export function registerTemplateCommands(program: Command, rl: readline.Interface) {
@@ -160,7 +160,7 @@ export function registerTemplateCommands(program: Command, rl: readline.Interfac
   template
     .command('from <templateName> <newName>')
     .description('Generate new feature from template')
-    .option('--target <path>', 'Target directory path', 'src/features')
+    .option('--target <path>', 'Target directory path')
     .option('--naming <convention>', 'Naming convention (pascal|camel|kebab|snake|constant|original)', 'pascal')
     .option('--replace', 'Replace existing files')
     .option('--preserve-case', 'Preserve original case in transformations')
@@ -168,6 +168,11 @@ export function registerTemplateCommands(program: Command, rl: readline.Interfac
     .action(async (templateName: string, newName: string, options: any) => {
       try {
         const config = await setupConfiguration(rl);
+        
+        // Set default target directory from config if not provided
+        if (!options.target) {
+          options.target = path.join(config.baseDir, 'features');
+        }
         
         let finalOptions = {
           templateName,
@@ -183,26 +188,53 @@ export function registerTemplateCommands(program: Command, rl: readline.Interfac
           console.log(chalk.cyan.bold('\n🎯 Template Generation Wizard'));
           console.log(chalk.gray(`Generating "${newName}" from template "${templateName}"...\n`));
 
+          // Target directory with config-aware suggestions
+          console.log(chalk.gray(`Current config base directory: ${config.baseDir}`));
+          console.log(chalk.gray(`Suggested target: ${finalOptions.targetPath}\n`));
+          
           const targetDir = await askQuestion(
             rl, 
             `Enter target directory [${finalOptions.targetPath}]: `
           );
-          finalOptions.targetPath = path.resolve(targetDir || finalOptions.targetPath);
-
-          const conventions = ['pascal', 'camel', 'kebab', 'snake', 'constant', 'original'];
-          console.log(chalk.cyan('Available naming conventions:'));
-          conventions.forEach((conv, index) => {
-            console.log(chalk.gray(`  ${index + 1}. ${conv}`));
-          });
-
-          const conventionChoice = await askQuestion(
-            rl, 
-            `Choose naming convention (1-${conventions.length}) [1]: `
-          );
           
-          const conventionIndex = parseInt(conventionChoice || '1') - 1;
-          if (conventionIndex >= 0 && conventionIndex < conventions.length) {
-            finalOptions.namingConvention = conventions[conventionIndex] as any;
+          if (targetDir && targetDir.trim()) {
+            // If user provided a relative path, resolve it relative to config.baseDir
+            if (!path.isAbsolute(targetDir)) {
+              finalOptions.targetPath = path.resolve(config.baseDir, targetDir, newName);
+            } else {
+              finalOptions.targetPath = path.resolve(targetDir, newName);
+            }
+          } else {
+            finalOptions.targetPath = path.resolve(finalOptions.targetPath);
+          }
+
+          // Naming convention using improved choice system
+          const conventions = [
+            { value: 'pascal', label: 'PascalCase (MyFeature)' },
+            { value: 'camel', label: 'camelCase (myFeature)' },
+            { value: 'kebab', label: 'kebab-case (my-feature)' },
+            { value: 'snake', label: 'snake_case (my_feature)' },
+            { value: 'constant', label: 'CONSTANT_CASE (MY_FEATURE)' },
+            { value: 'original', label: 'Keep original casing' }
+          ];
+
+          finalOptions.namingConvention = await askChoice(
+            rl,
+            'Choose naming convention:',
+            conventions
+          ) as any;
+
+          // Replace confirmation
+          if (!options.replace) {
+            const shouldReplace = await askChoice(
+              rl,
+              'Replace existing files if they exist?',
+              [
+                { value: 'false', label: 'No, skip existing files' },
+                { value: 'true', label: 'Yes, replace existing files' }
+              ]
+            );
+            finalOptions.replace = shouldReplace === 'true';
           }
         }
 

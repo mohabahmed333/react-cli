@@ -15,7 +15,7 @@ export function registerGenerateTemplate(generate: Command, rl: TReadlineInterfa
   generate
     .command('template [templateName] [newName]')
     .description('Generate new feature from saved template')
-    .option('-t, --target <path>', 'Target directory path', 'src/features')
+    .option('-t, --target <path>', 'Target directory path')
     .option('-n, --naming <convention>', 'Naming convention (pascal|camel|kebab|snake|constant|original)', 'pascal')
     .option('--replace', 'Replace existing files if they exist')
     .option('--preserve-case', 'Preserve original case in transformations')
@@ -23,6 +23,11 @@ export function registerGenerateTemplate(generate: Command, rl: TReadlineInterfa
     .action(async (templateName: string | undefined, newName: string | undefined, options: any) => {
       try {
         const config = await setupConfiguration(rl);
+        
+        // Set default target directory from config if not provided
+        if (!options.target) {
+          options.target = path.join(config.baseDir, 'features');
+        }
 
         // Interactive template selection if not provided
         let finalTemplateName = templateName;
@@ -38,7 +43,20 @@ export function registerGenerateTemplate(generate: Command, rl: TReadlineInterfa
           }
 
           if (!finalTemplateName) {
-            console.log(chalk.cyan.bold('\n📦 Available Templates\n'));
+            console.log(chalk.cyan.bold('\n📦 Available Templates'));
+            console.log(chalk.gray('Choose from your saved templates:\n'));
+            
+            // Display templates with detailed information
+            templates.forEach((template, index) => {
+              console.log(chalk.cyan(`  ${index + 1}. ${chalk.bold(template.name)}`));
+              console.log(chalk.gray(`     Description: ${template.metadata.description || 'No description'}`));
+              console.log(chalk.gray(`     Files: ${template.metadata.files?.length || 0} files`));
+              console.log(chalk.gray(`     Created: ${new Date(template.metadata.createdAt).toLocaleDateString()}`));
+              if (template.metadata.tags && template.metadata.tags.length > 0) {
+                console.log(chalk.gray(`     Tags: ${template.metadata.tags.join(', ')}`));
+              }
+              console.log('');
+            });
             
             const templateChoices = templates.map(template => ({
               value: template.name,
@@ -97,12 +115,25 @@ export function registerGenerateTemplate(generate: Command, rl: TReadlineInterfa
           console.log(chalk.cyan.bold('\n🎯 Template Generation Settings'));
           console.log(chalk.gray(`Generating "${finalNewName}" from template "${finalTemplateName}"...\n`));
 
-          // Target directory
+          // Target directory with config-aware suggestions
+          console.log(chalk.gray(`Current config base directory: ${config.baseDir}`));
+          console.log(chalk.gray(`Suggested target: ${finalOptions.targetPath}\n`));
+          
           const targetDir = await askQuestion(
             rl, 
             `Enter target directory [${finalOptions.targetPath}]: `
           );
-          finalOptions.targetPath = path.resolve(targetDir || finalOptions.targetPath);
+          
+          if (targetDir && targetDir.trim()) {
+            // If user provided a relative path, resolve it relative to config.baseDir
+            if (!path.isAbsolute(targetDir)) {
+              finalOptions.targetPath = path.resolve(config.baseDir, targetDir, finalNewName!);
+            } else {
+              finalOptions.targetPath = path.resolve(targetDir, finalNewName!);
+            }
+          } else {
+            finalOptions.targetPath = path.resolve(finalOptions.targetPath);
+          }
 
           // Naming convention
           const conventions = [

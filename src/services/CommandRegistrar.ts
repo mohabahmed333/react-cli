@@ -37,14 +37,14 @@ export class CommandRegistrar {
    */
   static registerMainCommands(program: Command, rl: Interface) {
     // Libraries command
-    commandRegistry.registerCommand({
-      name: 'libraries',
-      description: 'Install and setup additional libraries',
-      category: 'main',
-      action: async () => {
-        await this.executeCliCommand('libraries', ['--interactive']);
-      }
-    });
+    // commandRegistry.registerCommand({
+    //   name: 'libraries',
+    //   description: 'Install and setup additional libraries',
+    //   category: 'main',
+    //   action: async () => {
+    //     await this.executeCliCommand('libraries', ['-i']);
+    //   }
+    // });
 
     // Global command
     commandRegistry.registerCommand({
@@ -52,7 +52,7 @@ export class CommandRegistrar {
       description: 'Create multiple global resources',
       category: 'main',
       action: async () => {
-        await this.executeCliCommand('global', ['--interactive']);
+        await this.executeCliCommand('global', ['-i']);
       }
     });
 
@@ -113,7 +113,7 @@ export class CommandRegistrar {
       { name: 'env', description: 'Generate environment configuration', action: async () => { await this.executeGenerateCommand('env'); } },
       { name: 'testutils', description: 'Generate test utilities', action: async () => { await this.executeGenerateCommand('testutils'); } },
       { name: 'errorboundary', description: 'Generate error boundary component', action: async () => { await this.executeGenerateCommand('errorboundary'); } },
-      { name: 'template', description: 'Generate from template', action: async () => { await this.executeGenerateCommand('template'); } }
+      { name: 'template', description: 'Generate from template', action: async () => { await this.executeGenerateTemplateCommand(); } }
     ];
 
     commandRegistry.registerCommand({
@@ -135,24 +135,22 @@ export class CommandRegistrar {
       }
     });
 
-    // AI command
-    commandRegistry.registerCommand({
-      name: 'ai',
-      description: 'AI-powered code generation and assistance',
-      category: 'main',
-      action: async () => {
-        await this.executeCliCommand('ai', ['--interactive']);
-      }
-    });
+    
 
-    // Template command
+    // Template command with sub-commands
+    const templateSubCommands: CommandInfo[] = [
+      { name: 'save', description: 'Save existing code as a template', action: async () => { await this.executeTemplateCommand('save'); } },
+      { name: 'list', description: 'List all saved templates', action: async () => { await this.executeCliCommand('template', ['list']); } },
+      { name: 'from', description: 'Generate from a template', action: async () => { await this.executeTemplateCommand('from'); } },
+      { name: 'delete', description: 'Delete a template', action: async () => { await this.executeTemplateCommand('delete'); } }
+    ];
+
     commandRegistry.registerCommand({
       name: 'template',
-      description: 'Template management commands',
+      description: 'Template management - save, list, and generate from templates',
       category: 'main',
-      action: async () => {
-        await this.executeCliCommand('template', ['--interactive']);
-      }
+      hasSubCommands: true,
+      subCommands: templateSubCommands
     });
   }
 
@@ -176,10 +174,142 @@ export class CommandRegistrar {
       ]);
 
       // Execute the generate command with the name and interactive flag
-      await this.executeCliCommand('g', [subCommand, itemName.trim(), '--interactive']);
+      await this.executeCliCommand('g', [subCommand, itemName.trim(), '-i']);
     } catch (error) {
       const chalk = (await import('chalk')).default;
       console.error(chalk.red('Error executing generate command:'), error);
+    }
+  }
+
+  private static async executeGenerateTemplateCommand(): Promise<void> {
+    try {
+      // For template generation, we want to work like normal `yarn re g template -i`
+      // This should show template selection first, then ask for name
+      await this.executeCliCommand('g', ['template', '-i']);
+    } catch (error) {
+      const chalk = (await import('chalk')).default;
+      console.error(chalk.red('Error executing generate template command:'), error);
+    }
+  }
+
+  private static async executeTemplateCommand(subCommand: string): Promise<void> {
+    try {
+      const inquirer = (await import('inquirer')).default;
+      
+      if (subCommand === 'save') {
+        // Template save - ask for source path and template name
+        const answers = await inquirer.prompt([
+          {
+            type: 'input',
+            name: 'sourcePath',
+            message: 'Enter source path to save as template:',
+            validate: (input: string) => {
+              if (!input.trim()) {
+                return 'Source path is required';
+              }
+              return true;
+            }
+          },
+          {
+            type: 'input',
+            name: 'templateName',
+            message: 'Enter template name:',
+            validate: (input: string) => {
+              if (!input.trim()) {
+                return 'Template name is required';
+              }
+              return true;
+            }
+          }
+        ]);
+
+        await this.executeCliCommand('template', ['save', answers.sourcePath.trim(), answers.templateName.trim(), '-i']);
+        
+      } else if (subCommand === 'from') {
+        // Get available templates for selection
+        const templates = await this.getAvailableTemplates();
+        
+        if (templates.length === 0) {
+          const chalk = (await import('chalk')).default;
+          console.log(chalk.yellow('No templates found.'));
+          console.log(chalk.cyan('Create your first template with: yarn re template save'));
+          return;
+        }
+
+        // Template from - select template and enter new name
+        const answers = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'templateName',
+            message: 'Select a template:',
+            choices: templates.map(template => ({
+              name: `${template.name} - ${template.description || 'No description'}`,
+              value: template.name
+            }))
+          },
+          {
+            type: 'input',
+            name: 'newName',
+            message: 'Enter new feature name:',
+            validate: (input: string) => {
+              if (!input.trim()) {
+                return 'New name is required';
+              }
+              return true;
+            }
+          }
+        ]);
+
+        await this.executeCliCommand('template', ['from', answers.templateName.trim(), answers.newName.trim(), '-i']);
+        
+      } else if (subCommand === 'delete') {
+        // Get available templates for selection
+        const templates = await this.getAvailableTemplates();
+        
+        if (templates.length === 0) {
+          const chalk = (await import('chalk')).default;
+          console.log(chalk.yellow('No templates found to delete.'));
+          return;
+        }
+
+        // Template delete - select template to delete
+        const { templateName } = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'templateName',
+            message: 'Select template to delete:',
+            choices: templates.map(template => ({
+              name: `${template.name} - ${template.description || 'No description'}`,
+              value: template.name
+            }))
+          }
+        ]);
+
+        await this.executeCliCommand('template', ['delete', templateName.trim()]);
+      }
+    } catch (error) {
+      const chalk = (await import('chalk')).default;
+      console.error(chalk.red(`Error executing template ${subCommand} command:`), error);
+    }
+  }
+
+  /**
+   * Get list of available templates
+   */
+  private static async getAvailableTemplates(): Promise<Array<{name: string, description?: string}>> {
+    try {
+      // Import the template utilities
+      const { listTemplates } = await import('../utils/template.js');
+      const templates = listTemplates();
+      
+      return templates.map(template => ({
+        name: template.name,
+        description: template.metadata?.description
+      }));
+    } catch (error) {
+      const chalk = (await import('chalk')).default;
+      console.error(chalk.red('Error loading templates:'), error);
+      return [];
     }
   }
 }
