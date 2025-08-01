@@ -16,6 +16,7 @@ import { registerOperation } from './operations/Operation';
 import { registerTemplateCommands } from './commands/template';
 import { CommandRegistrar } from './services/CommandRegistrar';
 import { interactiveMenu } from './services/InteractiveMenu';
+import { registerAddCommand } from './commands/add';
 
 const program = new Command();
 
@@ -49,6 +50,7 @@ registerOperation(program, rl);
 registerDocsCommand(program, rl);
 setupAICommands(program, rl); // Update this to accept rl
 registerTemplateCommands(program, rl);
+registerAddCommand(program, rl); // Add the new add command
 
 // Register commands with interactive system
 CommandRegistrar.registerMainCommands(program, rl);

@@ -1,8 +1,8 @@
 {
-  "name": "react-cli",
-  "version": "1.0.0",
-  "description": "A CLI tool for React/Next.js project scaffolding with Vite support",
-  "main": "dist/index.js",
+  "name": "m",
+  "version": "y",
+  "description": "y",
+  "main": "m",
   "module": "NodeNext",
   "exports": {
     "require": "./dist/index.js",
@@ -63,6 +63,8 @@
     "vite",
     "accessibility"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "y",
+  "license": "y",
+  "repository": "y",
+  "private": true
 }

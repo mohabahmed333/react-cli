@@ -8,8 +8,8 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const chalk_1 = __importDefault(require("chalk"));
 const prompt_1 = require("./prompt");
-const buildTools_1 = require("./buildTools");
 const generative_ai_1 = require("@google/generative-ai");
+const intelligentConfig_1 = require("./intelligentConfig");
 const defaultConfig = {
     baseDir: 'src',
     projectType: 'react',
@@ -35,20 +35,20 @@ async function setupConfiguration(rl) {
     catch (e) {
         console.error(chalk_1.default.red('Error reading config:'), e);
     }
-    console.log(chalk_1.default.yellow('\n⚙️ First-time setup'));
-    const config = { ...defaultConfig };
-    config.baseDir = (await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Project base directory (src/app): '))) || 'src';
-    config.projectType = (await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Project type (react/next): '))) || 'react';
-    const buildTool = await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Build tool (vite/react-scripts): '));
-    config.buildTool = buildTool || 'vite';
-    const toolConfig = (0, buildTools_1.getBuildToolConfig)({ buildTool: config.buildTool });
-    if (config.buildTool !== toolConfig.id) {
-        console.log(chalk_1.default.yellow(`Warning: Unknown build tool "${config.buildTool}". Defaulting to vite.`));
-        config.buildTool = 'vite';
-    }
-    config.typescript = (await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Use TypeScript? (y/n): '))) === 'y';
+    console.log(chalk_1.default.yellow('\n⚙️ Intelligent Project Setup'));
+    // Use intelligent configuration detection
+    const intelligentConfig = await (0, intelligentConfig_1.setupIntelligentConfiguration)(rl);
+    // Convert intelligent config to CLI config
+    const config = {
+        ...defaultConfig,
+        baseDir: intelligentConfig.baseDir,
+        typescript: intelligentConfig.typescript,
+        // Detect project type based on structure and dependencies
+        projectType: intelligentConfig.hasAppFolder ? 'next' : 'react',
+        buildTool: intelligentConfig.hasAppFolder ? 'next' : 'vite'
+    };
+    // Additional configuration questions
     if (config.projectType === 'next') {
-        config.buildTool = 'next';
         config.localization = (await (0, prompt_1.askQuestion)(rl, chalk_1.default.blue('Use [lang] localization? (y/n): '))) === 'y';
     }
     // AI Configuration
@@ -62,5 +62,12 @@ async function setupConfiguration(rl) {
         config.port = parseInt(customPort, 10);
     }
     fs_1.default.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    console.log(chalk_1.default.green('\n✅ Configuration saved!'));
+    console.log(chalk_1.default.blue('📋 Final Configuration:'));
+    console.log(`  ${chalk_1.default.gray('Base Directory:')} ${config.baseDir}`);
+    console.log(`  ${chalk_1.default.gray('Project Type:')} ${config.projectType}`);
+    console.log(`  ${chalk_1.default.gray('Build Tool:')} ${config.buildTool}`);
+    console.log(`  ${chalk_1.default.gray('TypeScript:')} ${config.typescript ? '✅' : '❌'}`);
+    console.log(`  ${chalk_1.default.gray('AI Features:')} ${config.aiEnabled ? '✅' : '❌'}`);
     return config;
 }

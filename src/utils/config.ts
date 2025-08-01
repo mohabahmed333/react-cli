@@ -5,6 +5,7 @@ import { askQuestion } from './prompt';
 import readline from 'readline';
 import { buildTools, getBuildToolConfig } from './buildTools';
 import { HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { setupIntelligentConfiguration, ProjectConfig } from './intelligentConfig';
 
 export interface DocsConfig {
   outputDir?: string;
@@ -57,25 +58,23 @@ export async function setupConfiguration(rl: readline.Interface): Promise<CLICon
     console.error(chalk.red('Error reading config:'), e);
   }
 
-  console.log(chalk.yellow('\n⚙️ First-time setup'));
-  const config: CLIConfig = { ...defaultConfig };
-
-  config.baseDir = (await askQuestion(rl, chalk.blue('Project base directory (src/app): '))) || 'src';
-  config.projectType = (await askQuestion(rl, chalk.blue('Project type (react/next): '))) as 'react' | 'next' || 'react';
+  console.log(chalk.yellow('\n⚙️ Intelligent Project Setup'));
   
-  const buildTool = await askQuestion(rl, chalk.blue('Build tool (vite/react-scripts): '));
-  config.buildTool = buildTool as 'vite' | 'react-scripts' | 'next' || 'vite';
-
-  const toolConfig = getBuildToolConfig({ buildTool: config.buildTool });
-  if (config.buildTool !== toolConfig.id) {
-    console.log(chalk.yellow(`Warning: Unknown build tool "${config.buildTool}". Defaulting to vite.`));
-    config.buildTool = 'vite';
-  }
-
-  config.typescript = (await askQuestion(rl, chalk.blue('Use TypeScript? (y/n): '))) === 'y';
+  // Use intelligent configuration detection
+  const intelligentConfig = await setupIntelligentConfiguration(rl);
   
+  // Convert intelligent config to CLI config
+  const config: CLIConfig = {
+    ...defaultConfig,
+    baseDir: intelligentConfig.baseDir,
+    typescript: intelligentConfig.typescript,
+    // Detect project type based on structure and dependencies
+    projectType: intelligentConfig.hasAppFolder ? 'next' : 'react',
+    buildTool: intelligentConfig.hasAppFolder ? 'next' : 'vite'
+  };
+
+  // Additional configuration questions
   if (config.projectType === 'next') {
-    config.buildTool = 'next';
     config.localization = (await askQuestion(rl, chalk.blue('Use [lang] localization? (y/n): '))) === 'y';
   }
 
@@ -93,5 +92,14 @@ export async function setupConfiguration(rl: readline.Interface): Promise<CLICon
   }
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  
+  console.log(chalk.green('\n✅ Configuration saved!'));
+  console.log(chalk.blue('📋 Final Configuration:'));
+  console.log(`  ${chalk.gray('Base Directory:')} ${config.baseDir}`);
+  console.log(`  ${chalk.gray('Project Type:')} ${config.projectType}`);
+  console.log(`  ${chalk.gray('Build Tool:')} ${config.buildTool}`);
+  console.log(`  ${chalk.gray('TypeScript:')} ${config.typescript ? '✅' : '❌'}`);
+  console.log(`  ${chalk.gray('AI Features:')} ${config.aiEnabled ? '✅' : '❌'}`);
+  
   return config;
 }

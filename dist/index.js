@@ -19,6 +19,7 @@ const Operation_1 = require("./operations/Operation");
 const template_1 = require("./commands/template");
 const CommandRegistrar_1 = require("./services/CommandRegistrar");
 const InteractiveMenu_1 = require("./services/InteractiveMenu");
+const add_1 = require("./commands/add");
 const program = new commander_1.Command();
 // Create a single readline interface
 const rl = readline_1.default.createInterface({
@@ -47,6 +48,7 @@ process.on('SIGTERM', cleanup);
 (0, docs_1.registerDocsCommand)(program, rl);
 (0, ai_1.setupAICommands)(program, rl); // Update this to accept rl
 (0, template_1.registerTemplateCommands)(program, rl);
+(0, add_1.registerAddCommand)(program, rl); // Add the new add command
 // Register commands with interactive system
 CommandRegistrar_1.CommandRegistrar.registerMainCommands(program, rl);
 // Check if any arguments are provided beyond node and script name

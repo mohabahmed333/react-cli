@@ -96,6 +96,17 @@ export class CommandRegistrar {
       }
     });
 
+    // Add command
+    commandRegistry.registerCommand({
+      name: 'add',
+      description: 'Add libraries to your React project',
+      alias: '+',
+      category: 'main',
+      action: async () => {
+        await this.executeAddCommand();
+      }
+    });
+
     // Generate command with sub-commands
     const generateSubCommands: CommandInfo[] = [
       { name: 'component', description: 'Generate a React component', action: async () => { await this.executeGenerateCommand('component'); } },
@@ -310,6 +321,81 @@ export class CommandRegistrar {
       const chalk = (await import('chalk')).default;
       console.error(chalk.red('Error loading templates:'), error);
       return [];
+    }
+  }
+
+  private static async executeAddCommand(): Promise<void> {
+    try {
+      const inquirer = (await import('inquirer')).default;
+      
+      // Show available pre-configured libraries and allow custom input
+      const { libraryChoice } = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'libraryChoice',
+          message: 'What would you like to add?',
+          choices: [
+            { name: 'react-router-dom - React Router for navigation', value: 'react-router-dom' },
+            { name: 'tailwindcss - Utility-first CSS framework', value: 'tailwindcss' },
+            { name: 'styled-components - CSS-in-JS library', value: 'styled-components' },
+            { name: 'zustand - Small, fast state management', value: 'zustand' },
+            { name: 'react-query - Data fetching and caching library', value: 'react-query' },
+            { name: 'axios - HTTP client library', value: 'axios' },
+            { name: 'framer-motion - Animation library for React', value: 'framer-motion' },
+            { name: 'material-ui - Material Design components', value: 'material-ui' },
+            { name: 'react-icons - Popular icon libraries', value: 'react-icons' },
+            new inquirer.Separator(),
+            { name: 'Custom library (enter name manually)', value: 'custom' },
+            new inquirer.Separator(),
+            { name: 'List all available libraries', value: 'list' }
+          ]
+        }
+      ]);
+
+      if (libraryChoice === 'list') {
+        await this.executeCliCommand('add', ['list']);
+        return;
+      }
+
+      let libraryName = libraryChoice;
+      
+      if (libraryChoice === 'custom') {
+        const { customLibrary } = await inquirer.prompt([
+          {
+            type: 'input',
+            name: 'customLibrary',
+            message: 'Enter library name:',
+            validate: (input: string) => {
+              if (!input.trim()) {
+                return 'Library name is required';
+              }
+              return true;
+            }
+          }
+        ]);
+        libraryName = customLibrary.trim();
+      }
+
+      // Ask if it should be installed as dev dependency
+      const { isDev } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'isDev',
+          message: 'Install as dev dependency?',
+          default: false
+        }
+      ]);
+
+      // Execute the add command
+      const args = [libraryName];
+      if (isDev) {
+        args.push('--dev');
+      }
+      
+      await this.executeCliCommand('add', args);
+    } catch (error) {
+      const chalk = (await import('chalk')).default;
+      console.error(chalk.red('Error executing add command:'), error);
     }
   }
 }
