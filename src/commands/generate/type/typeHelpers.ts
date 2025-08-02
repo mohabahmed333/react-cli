@@ -3,12 +3,10 @@ import path from 'path';
 import fs from 'fs';
 import { askQuestion } from '../../../utils/prompt';
 import { CLIConfig, setupConfiguration } from '../../../utils/config';
-import { createFile } from '../../../utils/file';
+import { createGeneratedFile } from '../../../utils/file/createGeneratedFile';
 import { 
   shouldUseAI, 
-  generateTypeWithAI, 
-  getAIFeatures, 
-  confirmAIOutput 
+  getAIFeatures
 } from '../../../utils/generateAIHelper';
 import readline from 'readline';
 import { GenerateOptions } from '../../../utils/generateAIHelper';
@@ -197,41 +195,33 @@ export async function handleNamedType(kind: 'enum' | 'interface' | 'class', name
 
 export async function createNamedTypeInPath(kind: 'enum' | 'interface' | 'class', typeName: string, fullPath: string, options: GenerateOptions & { config: CLIConfig }) {
   try {
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-      console.log(chalk.green(`📁 Created directory: ${fullPath}`));
+    let defaultContent = '';
+    let generatorType: 'enum' | 'interface' | 'type' = kind === 'class' ? 'type' : kind; // Map 'class' to 'type'
+    
+    if (kind === 'enum') {
+      defaultContent = `export enum ${typeName} {\n  // Add enum members here\n  Example = 'EXAMPLE'\n}\n`;
+    } else if (kind === 'interface') {
+      defaultContent = `export interface ${typeName} {\n  // Add properties here\n}\n`;
+    } else if (kind === 'class') {
+      defaultContent = `export class ${typeName} {\n  // Add properties and methods here\n  constructor() {\n    // ...\n  }\n}\n`;
     }
 
-    let filePath = path.join(fullPath, `${typeName}.${kind}.ts`);   
-    let content = '';
+    await createGeneratedFile({
+      rl: options.rl!,
+      config: options.config,
+      type: generatorType,
+      name: typeName,
+      targetDir: fullPath,
+      useTS: true, // Types are always TypeScript
+      replace: options.replace ?? false,
+      defaultContent,
+      aiOptions: options.useAI ? {
+        features: options.aiFeatures,
+        additionalPrompt: `Create a ${kind} named ${typeName} with proper TypeScript typing.`
+      } : undefined
+    });
 
-    if (options.useAI && options.config) {
-      const aiContent = await generateTypeWithAI(typeName, options.config, {
-        features: options.aiFeatures
-      });
-
-      if (aiContent && (!fs.existsSync(filePath) || options.replace)) {
-        if (options.rl && await confirmAIOutput(options.rl, aiContent)) {
-          content = aiContent;
-        }
-      }
-    }
-
-    if (!content) {
-      if (kind === 'enum') {
-        content = `export enum ${typeName} {\n  // Add enum members here\n  Example = 'EXAMPLE'\n}\n`;
-      } else if (kind === 'interface') {
-        content = `export interface ${typeName} {\n  // Add properties here\n}\n`;
-      } else if (kind === 'class') {
-        content = `export class ${typeName} {\n  // Add properties and methods here\n  constructor() {\n    // ...\n  }\n}\n`;
-      }
-    }
-
-    if (createFile(filePath, content, options.replace)) {
-      console.log(chalk.green(`✅ Created ${capitalize(kind)}: ${filePath}`));
-    } else {
-      console.log(chalk.yellow(`⚠️ ${capitalize(kind)} exists: ${filePath} (use --replace to overwrite)`));
-    }
+    console.log(chalk.green(`✅ Successfully generated ${capitalize(kind)}: ${typeName}`));
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log(chalk.red(`❌ Error creating ${kind}:`));
@@ -355,35 +345,24 @@ export async function handleTypeLegacy(name: string | undefined, folder: string 
 
 export async function createTypeLegacyInPath(typeName: string, fullPath: string, options: GenerateOptions & { config: CLIConfig }) {
   try {
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-      console.log(chalk.green(`📁 Created directory: ${fullPath}`));
-    }
+    const defaultContent = `export interface ${typeName} {\n  // Add properties here\n}\n\nexport type ${typeName}Type = {\n  id: string;\n  name: string;\n};\n`;
 
-    const typeFilePath = path.join(fullPath, `${typeName}.types.ts`);
-    let content = '';
+    await createGeneratedFile({
+      rl: options.rl!,
+      config: options.config,
+      type: 'type',
+      name: typeName,
+      targetDir: fullPath,
+      useTS: true, // Types are always TypeScript
+      replace: options.replace ?? false,
+      defaultContent,
+      aiOptions: options.useAI ? {
+        features: options.aiFeatures,
+        additionalPrompt: `Create TypeScript type definitions for ${typeName} with proper typing.`
+      } : undefined
+    });
 
-    if (options.useAI && options.config) {
-      const aiContent = await generateTypeWithAI(typeName, options.config, {
-        features: options.aiFeatures
-      });
-
-      if (aiContent && (!fs.existsSync(typeFilePath) || options.replace)) {
-        if (options.rl && options.config && await confirmAIOutput(options.rl, aiContent)) {
-          content = aiContent;
-        }
-      }
-    }
-
-    if (!content) {
-      content = `export interface ${typeName} {\n  // Add properties here\n}\n\nexport type ${typeName}Type = {\n  id: string;\n  name: string;\n};\n`;
-    }
-
-    if (createFile(typeFilePath, content, options.replace)) {
-      console.log(chalk.green(`✅ Created type: ${typeFilePath}`));
-    } else {
-      console.log(chalk.yellow(`⚠️ Type exists: ${typeFilePath} (use --replace to overwrite)`));
-    }
+    console.log(chalk.green(`✅ Successfully generated type: ${typeName}`));
   } catch (error: unknown) {
     console.log(chalk.red('❌ Error creating type:'));
     console.error(chalk.red(error instanceof Error ? error.message : 'Unknown error'));

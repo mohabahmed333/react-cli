@@ -44,7 +44,6 @@ export function registerGenerateComponent(generate: Command, rl: ReadlineInterfa
     .option('--css', 'Include CSS module')
     .option('--test', 'Include test file')
     .option('--replace', 'Replace existing files')
-    .option('--ai', 'Use AI to generate code')
     .option('--lazy', 'Generate lazy-loaded component')
     .option('--memo', 'Wrap with React.memo')
     .option('--forward-ref', 'Add forwardRef support')

@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { generateWithGemini } from "../../services/gemini-service";
+import { generateWithConfiguredAI } from "../ai/aiConfig";
 import { askQuestion } from "../prompt";
 import { TReadlineInterface } from "../../types/ReadLineInterface";
 import { CLIConfig } from "../config";
@@ -54,7 +54,7 @@ export async function generateWithAI(
       additionalPrompt: options.additionalPrompt
     });
 
-    const rawCode = await generateWithGemini(prompt, options.config);
+    const rawCode = await generateWithConfiguredAI(prompt, options.config);
     if (!rawCode) {
       console.log(chalk.yellow('AI returned no code'));
       return result;

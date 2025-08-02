@@ -8,6 +8,7 @@ import { FileExtension, GenerateFileParams, GenerateFileResult, GeneratorType } 
 import { askQuestion } from '../prompt';
 import { formatFileName } from './formatFIleName';
 import { findFoldersByName } from './findFolderByName';
+import { isAIEnabled, shouldOfferAI } from '../ai/aiConfig';
 
 export async function createGeneratedFile(params: GenerateFileParams):
   Promise<GenerateFileResult> {
@@ -76,7 +77,7 @@ export async function createGeneratedFile(params: GenerateFileParams):
     let content = params.defaultContent;
     let usedAI = false;
 
-    if (params.config.aiEnabled && params.aiOptions) {
+    if (shouldOfferAI(params.config, 'codeGeneration') && params.aiOptions) {
       const { code, usedAI: aiUsed } = await handleAIGeneration(params);
       if (aiUsed && code) {
         content = code;

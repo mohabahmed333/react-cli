@@ -12,6 +12,8 @@ import { handleBundleCheck } from './commands/bundleCheck';
 import { handleLibraries } from './commands/libraries';
  import { registerDocsCommand } from './commands/docs';
 import { setupAICommands } from './commands/ai';
+import { registerAIConfigCommands } from './commands/aiConfig';
+import { shouldRegisterAICommands } from './config/libraryConfig';
 import { registerOperation } from './operations/Operation';
 import { registerTemplateCommands } from './commands/template';
 import { CommandRegistrar } from './services/CommandRegistrar';
@@ -49,7 +51,13 @@ handleGenerate(program, rl);
 // handleBundleCheck(program, rl);
 registerOperation(program, rl);
 registerDocsCommand(program, rl);
-setupAICommands(program, rl); // Update this to accept rl
+
+// Only register AI commands if enabled at library level
+if (shouldRegisterAICommands()) {
+  setupAICommands(program, rl); // Update this to accept rl
+  registerAIConfigCommands(program, rl); // Add AI configuration commands
+}
+
 registerTemplateCommands(program, rl);
 registerAddCommand(program, rl); // Add the new add command
 registerMistralCommand(program, rl); // Add Mistral AI command

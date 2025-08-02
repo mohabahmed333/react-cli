@@ -5,8 +5,6 @@ import fs from 'fs';
 import readline from 'readline';
 import { setupConfiguration } from '../../utils/config';
 import { askQuestion } from '../../utils/prompt';
-import { createFile } from '../../utils/file';
-import { generateWithGemini } from '../../services/gemini-service';
 import { Interface as ReadlineInterface } from 'readline';
 import { GenerateOptions } from '../../utils/generateAIHelper';
 import { findFoldersByName } from '../../utils/file/findFolderByName';

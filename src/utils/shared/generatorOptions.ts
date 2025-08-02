@@ -2,6 +2,7 @@ import { Interface as ReadlineInterface } from 'readline';
 import chalk from 'chalk';
 import { askQuestion, askBoolean, askMultiSelect, askChoice, ChoiceOption } from '../prompt';
 import { CLIConfig } from '../config';
+import { shouldOfferAI } from '../ai/aiConfig';
 
 export interface GeneratorOptionsConfig {
   supportedFiles?: {
@@ -45,8 +46,8 @@ export async function handleGeneratorOptions(
     additionalFiles: {}
   };
 
-  // AI Generation Option
-  if (optionsConfig.aiSupported !== false) {
+  // AI Generation Option - Only show if AI is globally enabled, configured properly, AND this generator supports it
+  if (shouldOfferAI(config, 'codeGeneration') && optionsConfig.aiSupported !== false) {
     result.useAI = await askBoolean(rl, 'Use AI to generate code?');
 
     if (result.useAI) {
