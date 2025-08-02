@@ -9,6 +9,8 @@ import { registerAuditCommand } from './commands/audit';
 import { handleGenerate } from './commands/generate';
 import { registerAIAgentCommand } from './commands/aiAgent';
 import { registerSmartCommand } from './commands/smartCommands';
+import { createAITemplateCommand } from './commands/aiTemplate';
+import { registerTemplateCommands } from './commands/template';
  
 const program = new Command();
 const rl = readline.createInterface({
@@ -22,6 +24,8 @@ registerAuditCommand(program, rl);
 handleGenerate(program, rl);
 registerAIAgentCommand(program, rl);
 registerSmartCommand(program, rl);
+registerTemplateCommands(program, rl);
+program.addCommand(createAITemplateCommand());
 
 // Parse CLI arguments
 program.parseAsync(process.argv).catch((err) => {

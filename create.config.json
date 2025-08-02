@@ -1,6 +1,6 @@
 {
   "baseDir": "app",
-  "projectType": "next",
+  "projectType": "react",
   "buildTool": "next",
   "typescript": true,
   "localization": false,

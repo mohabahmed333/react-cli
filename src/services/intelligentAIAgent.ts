@@ -3,7 +3,10 @@ import { generateWithConfiguredAI } from '../utils/config/ai/aiConfig';
 import { askQuestion } from '../utils/ai/prompt';
 import { TReadlineInterface } from '../types/ReadLineInterface';
 import { CLIConfig } from '../utils/config/config';
-import { createPage, PageOptions } from '../commands/generate/page/generatePage';
+import { createPage } from '../commands/generate/page/core/pageCore';
+import { PageOptions } from '../commands/generate/page/core/pageTypes';
+import { createFeatureWithAITemplate, AITemplateService } from './aiTemplateService';
+import { listTemplates } from '../utils/template/template';
 
 export interface AIAgentRequest {
   userDescription: string;
@@ -13,12 +16,14 @@ export interface AIAgentRequest {
 }
 
 export interface AIAgentDecision {
-  resourceType: 'page' | 'component' | 'hook' | 'service' | 'utils' | 'types' | 'full-feature';
+  resourceType: 'page' | 'component' | 'hook' | 'service' | 'utils' | 'types' | 'full-feature' | 'ai-template';
   resourceName: string;
   files: string[];
   options: any;
   reasoning: string;
   commands: string[];
+  templateName?: string; // For AI template-based generation
+  useAITemplate?: boolean; // Flag to use AI template service
 }
 
 export interface AIAgentResponse {
@@ -108,6 +113,13 @@ export class IntelligentAIAgent {
    * Build comprehensive prompt for AI analysis
    */
   private buildAnalysisPrompt(userDescription: string): string {
+    const availableTemplates = listTemplates().map(t => ({
+      name: t.name,
+      description: t.metadata.description || 'No description',
+      files: t.metadata.files || [],
+      tags: t.metadata.tags || []
+    }));
+
     return `You are an intelligent React development agent. Analyze the user's request and make autonomous decisions about what files, components, and project structure to create.
 
 USER REQUEST: "${userDescription}"
@@ -117,18 +129,22 @@ PROJECT CONTEXT:
 - Project Type: ${this.config.projectType || 'standard React'}
 - Base Directory: ${this.config.baseDir}
 
+AVAILABLE TEMPLATES:
+${JSON.stringify(availableTemplates, null, 2)}
+
 ANALYZE AND DECIDE:
 1. What type of feature/resource is being requested?
-2. What files and components are needed?
-3. What folder structure should be created?
-4. What additional utilities, hooks, or services are required?
-5. What are the logical next steps after creation?
+2. Should we use an existing template as a base and adapt it with AI?
+3. What files and components are needed?
+4. What folder structure should be created?
+5. What additional utilities, hooks, or services are required?
+6. What are the logical next steps after creation?
 
 OUTPUT FORMAT (JSON):
 {
   "decisions": [
     {
-      "resourceType": "page|component|hook|service|utils|types|full-feature",
+      "resourceType": "page|component|hook|service|utils|types|full-feature|ai-template",
       "resourceName": "ComponentName",
       "files": ["ComponentName.tsx", "hooks/useComponentName.ts", "types/ComponentName.types.ts"],
       "options": {
@@ -140,7 +156,9 @@ OUTPUT FORMAT (JSON):
         "lib": false
       },
       "reasoning": "Explanation of why these files are needed",
-      "commands": ["g page ComponentName --hooks --utils --types --css"]
+      "commands": ["g page ComponentName --hooks --utils --types --css"],
+      "templateName": "redux-dashboard",
+      "useAITemplate": true
     }
   ],
   "projectStructure": "Visual representation of the folder structure that will be created",
@@ -149,15 +167,27 @@ OUTPUT FORMAT (JSON):
 }
 
 DECISION RULES:
-- If user wants a "dashboard" or "page" → create page with hooks, utils, types, CSS
-- If user wants "user management" → create page + service + types + utils
-- If user wants "authentication" → create hooks + service + types + guards
-- If user wants "data fetching" → create hooks + service + types
-- If user wants "form" → create component + hooks + validation + types
+- If a suitable template exists for the request, prefer using AI template service (resourceType: "ai-template")
+- If user wants a "dashboard" or "page" → check for dashboard templates first, fallback to create page with hooks, utils, types, CSS
+- If user wants "user management" → check for auth/user templates, fallback to create page + service + types + utils
+- If user wants "authentication" → check for auth templates, fallback to create hooks + service + types + guards
+- If user wants "data fetching" → check for api/data templates, fallback to create hooks + service + types
+- If user wants "form" → check for form templates, fallback to create component + hooks + validation + types
 - If user mentions "responsive" → always include CSS
 - If user mentions "API" or "data" → always include service and types
-- If user mentions "state management" → include hooks and possibly context
+- If user mentions "state management" → include hooks and possibly context, check for state templates
 - If user mentions "testing" → include test files
+- If user mentions specific features like "redux", "router", etc. → check for matching templates
+
+TEMPLATE USAGE RULES:
+- Use AI template service when:
+  - A template exists that closely matches the request (≥70% match)
+  - The request involves complex features that benefit from a template base
+  - The user wants a complete, working feature quickly
+- Generate from scratch when:
+  - No suitable template exists
+  - The request is very specific and custom
+  - Simple single-file generations
 
 Be intelligent and anticipate what the user really needs, not just what they explicitly asked for.
 
@@ -267,6 +297,25 @@ Provide ONLY the JSON response, no additional text.`;
    */
   private async executeDecision(decision: AIAgentDecision): Promise<void> {
     switch (decision.resourceType) {
+      case 'ai-template':
+        // Use AI Template Service for intelligent template-based generation
+        const aiTemplateResult = await createFeatureWithAITemplate(
+          `Create ${decision.resourceName} using template ${decision.templateName}`,
+          decision.resourceName,
+          this.config.baseDir,
+          this.config
+        );
+        
+        if (aiTemplateResult.success) {
+          console.log(chalk.green(`✅ AI Template generated ${decision.resourceName} successfully`));
+          console.log(chalk.dim(`Generated files: ${aiTemplateResult.generatedFiles.length}`));
+          console.log(chalk.dim(`Modified files: ${aiTemplateResult.modifiedFiles.length}`));
+        } else {
+          console.log(chalk.red(`❌ AI Template generation failed for ${decision.resourceName}`));
+          aiTemplateResult.errors.forEach(error => console.log(chalk.red(`   Error: ${error}`)));
+        }
+        break;
+        
       case 'page':
         const pageOptions: PageOptions = {
           ...decision.options,

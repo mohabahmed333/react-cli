@@ -1,20 +1,42 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import path from 'path';
 import { Interface as ReadlineInterface } from 'readline';
-import { CLIConfig, setupConfiguration } from '../../../utils/config/config';
+import { GenerateOptions } from '../../../utils/ai/generateAIHelper';
 import { handleInteractiveName } from '../../../utils/shared/handleInteractiveName';
 import { handleTargetDirectory } from '../../../utils/createGeneratedFile/handleTargetDirectory';
+import { createGeneratedFile } from '../../../utils/createGeneratedFile/createGeneratedFile';
+import { CLIConfig, setupConfiguration } from '../../../utils/config/config';
 import { askQuestion } from '../../../utils/ai/prompt';
 import { handleGeneratorOptions, COMPONENT_OPTIONS_CONFIG } from '../../../utils/shared/generatorOptions';
-import { ComponentOptions } from './core/componentTypes';
-import { createComponent } from './core/componentCore';
+import { GeneratorType } from '../../../types/generator-type';
+import { generateComponentContent, generateCSSContent, generateStyledComponentsContent, generateTestContent } from '../../../content';
+ 
 
-// Re-export types for external use
-export { ComponentOptions };
+export interface ComponentOptions extends GenerateOptions {
+  css?: boolean;
+  test?: boolean;
+  replace?: boolean;
+  aiFeatures?: string;
+  lazy?: boolean;
+  memo?: boolean;
+  forwardRef?: boolean;
+  styled?: boolean;
+  exportType?: 'default' | 'named';
+  jsx?: boolean;
+}
 
-/**
- * Register the component generation command
- */
+interface FileToGenerate {
+  type: string;
+  name: string;
+  content: string;
+  useTS: boolean;
+  aiOptions?: {
+    features?: string;
+    additionalPrompt?: string;
+  };
+}
+
 export function registerGenerateComponent(generate: Command, rl: ReadlineInterface) {
   generate
     .command('component [name] [folder]')
@@ -29,7 +51,6 @@ export function registerGenerateComponent(generate: Command, rl: ReadlineInterfa
     .option('--named-export', 'Use named export instead of default')
     .option('--jsx', 'Force JSX extension even for TS')
     .option('-i, --interactive', 'Use interactive mode for component generation')
-    .option('--ai', 'Use AI to generate the component code')
     .action(async (name: string | undefined, folder: string | undefined, options: ComponentOptions) => {
       try {
         const config = await setupConfiguration(rl);
@@ -93,17 +114,104 @@ export function registerGenerateComponent(generate: Command, rl: ReadlineInterfa
         } else {
           // Handle --ai flag when not in interactive mode
           if (options.ai) {
+            // Set a special marker to indicate AI was requested
             options.aiFeatures = 'AI_REQUESTED';
           }
         }
 
-        // Create the component
-        await createComponent(componentName, targetDir, options, config, rl);
+        const componentFolder = path.join(targetDir, componentName);
+        const filesToGenerate = await getFilesToGenerate(componentName, options, useTS, config);
 
+        // Generate all files in a loop
+        for (const file of filesToGenerate) {
+          await createGeneratedFile({
+            rl: rl,
+            config,
+            type: file.type as GeneratorType,
+            name: file.name,
+            targetDir: componentFolder,
+            useTS: file.useTS,
+            replace: options.replace ?? false,
+            defaultContent: file.content,
+            aiOptions: file.aiOptions
+          });
+        }
+
+        console.log(chalk.green(`✅ Successfully generated ${componentName} component`));
       } catch (error) {
         console.error(chalk.red('❌ Error generating component:'), error instanceof Error ? error.message : error);
       } finally {
         rl.close();
       }
     });
+}
+
+
+
+async function getFilesToGenerate(name: string, options: ComponentOptions, useTS: boolean, config: CLIConfig): Promise<FileToGenerate[]> {
+  const files: FileToGenerate[] = [];
+
+  // Main component file - let createGeneratedFile handle AI generation
+  files.push({
+    type: 'component',
+    name,
+    content: generateComponentContent(name, options, useTS),
+    useTS,
+    aiOptions: {
+      features: options.aiFeatures || '', // Pass features if provided, empty string if not
+      additionalPrompt: generateAIPrompt(name, options, useTS)
+    }
+  });
+
+  // CSS module
+  if (options.css) {
+    files.push({
+      type: 'css',
+      name: `${name}.module`,
+      content: generateCSSContent(name),
+      useTS: false
+      // No aiOptions for CSS files
+    });
+  }
+
+  // Styled components
+  if (options.styled) {
+    files.push({
+      type: 'styled',
+      name: `${name}.styles`,
+      content: generateStyledComponentsContent(name),
+      useTS: false
+      // No aiOptions for styled files
+    });
+  }
+
+  // Test file
+  if (options.test) {
+    files.push({
+      type: 'test',
+      name: `${name}.test`,
+      content: generateTestContent(name, useTS, options.exportType),
+      useTS
+      // No aiOptions for test files
+    });
+  }
+
+  return files;
+}
+
+
+
+
+function generateAIPrompt(name: string, options: ComponentOptions, useTS: boolean): string {
+  const features = [
+    options.css && 'CSS modules',
+    options.styled && 'styled-components',
+    options.memo && 'React.memo optimization',
+    options.forwardRef && 'forwardRef support',
+    options.exportType === 'named' && 'Named export',
+    options.lazy && 'Lazy loading support'
+  ].filter(Boolean).join('\n- ');
+
+  return `Create a React component named ${name} in ${useTS ? 'TypeScript' : 'JavaScript'} with:\n- ${features}${options.aiFeatures ? `\nAdditional features: ${options.aiFeatures}` : ''
+    }`;
 }

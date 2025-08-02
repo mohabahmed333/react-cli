@@ -194,7 +194,7 @@ export function applyNamingConventions(
 }
 
 /**
- * Enhanced word boundary replacement
+ * Enhanced word boundary replacement with better pattern matching
  */
 function replaceWithWordBoundaries(
   str: string, 
@@ -203,9 +203,27 @@ function replaceWithWordBoundaries(
   preserveCase: boolean = false
 ): string {
   const flags = preserveCase ? 'g' : 'gi';
-  // Match word boundaries but avoid partial matches
-  const regex = new RegExp(`\\b${escapeRegExp(oldVal)}\\b`, flags);
-  return str.replace(regex, newVal);
+  
+  // Strategy 1: Word boundaries for standalone words
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(oldVal)}\\b`, flags);
+  let result = str.replace(wordBoundaryRegex, newVal);
+  
+  // Strategy 2: Handle camelCase/PascalCase compound words (like useDashboard, DashboardCard)
+  if (oldVal !== newVal) {
+    // Handle cases where oldVal is at the beginning of compound words (like Dashboard in DashboardCard)
+    const compoundStartRegex = new RegExp(`\\b${escapeRegExp(oldVal)}([A-Z][a-z])`, flags);
+    result = result.replace(compoundStartRegex, `${newVal}$1`);
+    
+    // Handle cases where oldVal is at the end of compound words (like Dashboard in useDashboard)
+    const compoundEndRegex = new RegExp(`([a-z])${escapeRegExp(oldVal)}\\b`, flags);
+    result = result.replace(compoundEndRegex, `$1${newVal}`);
+    
+    // Handle cases where oldVal is in the middle of compound words
+    const compoundMiddleRegex = new RegExp(`([a-z])${escapeRegExp(oldVal)}([A-Z][a-z])`, flags);
+    result = result.replace(compoundMiddleRegex, `$1${newVal}$2`);
+  }
+  
+  return result;
 }
 
 /**
@@ -245,7 +263,52 @@ function applyPatternTransformations(
     transformed = replaceWithWordBoundaries(transformed, oldVal, newVal, preserveCase);
   }
 
-  // ... (other transformation passes remain the same) ...
+  // PASS 2: Pascal case transformations
+  if (pascalOld !== pascalNew) {
+    transformed = replaceWithWordBoundaries(transformed, pascalOld, pascalNew, preserveCase);
+  }
+
+  // PASS 3: Camel case transformations
+  if (camelOld !== camelNew) {
+    transformed = replaceWithWordBoundaries(transformed, camelOld, camelNew, preserveCase);
+  }
+
+  // PASS 4: Constant case transformations
+  if (constantOld !== constantNew) {
+    transformed = replaceWithWordBoundaries(transformed, constantOld, constantNew, preserveCase);
+  }
+
+  // PASS 5: Kebab case transformations
+  const kebabOld = namingConventions.kebab(oldVal);
+  const kebabNew = namingConventions.kebab(newVal);
+  if (kebabOld !== kebabNew) {
+    transformed = replaceWithWordBoundaries(transformed, kebabOld, kebabNew, preserveCase);
+  }
+
+  // PASS 6: Snake case transformations
+  const snakeOld = namingConventions.snake(oldVal);
+  const snakeNew = namingConventions.snake(newVal);
+  if (snakeOld !== snakeNew) {
+    transformed = replaceWithWordBoundaries(transformed, snakeOld, snakeNew, preserveCase);
+  }
+
+  // PASS 7: Handle CSS modules and class names
+  const cssClassRegexOld = new RegExp(`\\.${escapeRegExp(camelOld)}(?=\\s|\\.|$)`, flags);
+  if (cssClassRegexOld.test(transformed)) {
+    transformed = transformed.replace(cssClassRegexOld, `.${camelNew}`);
+  }
+
+  // PASS 8: Handle import/export statements
+  const importRegexOld = new RegExp(`(import\\s+.*?\\{[^}]*?)\\b${escapeRegExp(pascalOld)}\\b([^}]*?\\}.*?from)`, flags);
+  transformed = transformed.replace(importRegexOld, `$1${pascalNew}$2`);
+
+  // PASS 9: Handle interface/type declarations
+  const interfaceRegexOld = new RegExp(`\\b(interface|type)\\s+${escapeRegExp(pascalOld)}\\b`, flags);
+  transformed = transformed.replace(interfaceRegexOld, `$1 ${pascalNew}`);
+
+  // PASS 10: Handle generic type parameters
+  const genericRegexOld = new RegExp(`<${escapeRegExp(pascalOld)}(\\s*[,>])`, flags);
+  transformed = transformed.replace(genericRegexOld, `<${pascalNew}$1`);
 
   // PASS 11: Restore protected terms
   protectedMap.forEach((originalTerm, placeholder) => {

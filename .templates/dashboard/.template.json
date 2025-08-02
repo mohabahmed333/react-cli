@@ -1,0 +1,23 @@
+{
+  "templateName": "dashboard",
+  "originalName": "Dashboard",
+  "description": "Complete dashboard template with charts, data tables, and analytics",
+  "author": "React CLI AI",
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "version": "1.0.0",
+  "tags": ["dashboard", "analytics", "charts", "data-table", "responsive"],
+  "files": [
+    "Dashboard.tsx",
+    "Dashboard.module.css",
+    "hooks/useDashboard.ts",
+    "types/Dashboard.types.ts",
+    "utils/dashboardUtils.ts",
+    "services/dashboardService.ts",
+    "components/DashboardCard.tsx",
+    "components/DataChart.tsx"
+  ],
+  "dependencies": [
+    "recharts",
+    "@types/react"
+  ]
+}
