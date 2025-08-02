@@ -19,12 +19,13 @@
     "build": "npm run build:cjs && npm run build:esm",
     "re": "node dist/index.js",
     "watch": "tsc -w",
-    "perf:audit": "vite build && vite preview & sleep 5 && react-cli audit src/pages/TestPage --url http://localhost:3000 && pkill -f \"vite preview\"",
-    "perf:baseline": "vite build && vite preview & sleep 5 && react-cli audit src/pages/TestPage --url http://localhost:3000 && pkill -f \"vite preview\" --save-baseline",
-    "perf:compare": "react-cli audit src/pages/TestPage --url http://localhost:3000 --compare-only"
+    "perf:audit": "next build && next start & sleep 5 && react-cli audit D:\\react-cli\\app\\pages/DD/DD --url http://localhost:3000 && pkill -f \"next start\"",
+    "perf:baseline": "next build && next start & sleep 5 && react-cli audit D:\\react-cli\\app\\pages/DD/DD --url http://localhost:3000 && pkill -f \"next start\" --save-baseline",
+    "perf:compare": "react-cli audit D:\\react-cli\\app\\pages/DD/DD --url http://localhost:3000 --compare-only"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@mistralai/mistralai": "^1.7.5",
     "@reduxjs/toolkit": "^2.8.2",
     "axe-core": "^4.7.2",
     "axios": "^1.6.0",

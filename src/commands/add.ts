@@ -68,6 +68,12 @@ const LIBRARY_CONFIGS: Record<string, LibraryConfig> = {
     devDependencies: [],
     tsOnly: false,
     description: 'Popular icon libraries for React'
+  },
+  '@mistralai/mistralai': {
+    dependencies: ['@mistralai/mistralai'],
+    devDependencies: [],
+    tsOnly: false,
+    description: 'Mistral AI SDK for code generation'
   }
 };
 

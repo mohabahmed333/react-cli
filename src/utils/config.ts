@@ -24,7 +24,7 @@ export interface CLIConfig {
   port?: number;
   docs?: DocsConfig;
   aiEnabled: boolean;
-  aiProvider?: 'gemini';
+  aiProvider?: 'gemini' | 'mistral';
   aiModel?: string;
   aiSafetySettings?: Array<{
     category: HarmCategory;
@@ -82,8 +82,22 @@ export async function setupConfiguration(rl: readline.Interface): Promise<CLICon
   config.aiEnabled = (await askQuestion(rl, chalk.blue('Enable AI features? (y/n): '))) === 'y';
   
   if (config.aiEnabled) {
-    config.aiModel = await askQuestion(rl, chalk.blue('Gemini model (gemini-1.5-flash/gemini-1.5-pro): ')) || 'gemini-1.5-flash-latest';
-    console.log(chalk.yellow('Note: Add GEMINI_API_KEY to .env for AI features'));
+    const aiProvider = await askQuestion(rl, chalk.blue('Choose AI provider (gemini/mistral): ')) || 'gemini';
+    config.aiProvider = ['gemini', 'mistral'].includes(aiProvider) ? aiProvider as 'gemini' | 'mistral' : 'gemini';
+    
+    if (config.aiProvider === 'mistral') {
+      config.aiModel = await askQuestion(rl, chalk.blue('Mistral model (mistral-large/mistral-medium/mistral-small): ')) || 'mistral-large-latest';
+      if (!config.aiModel.includes('latest')) {
+        config.aiModel = config.aiModel + '-latest';
+      }
+      console.log(chalk.yellow('Note: Add MISTRAL_API_KEY to .env for Mistral AI features'));
+    } else {
+      config.aiModel = await askQuestion(rl, chalk.blue('Gemini model (gemini-1.5-flash/gemini-1.5-pro): ')) || 'gemini-1.5-flash-latest';
+      if (!config.aiModel.includes('latest')) {
+        config.aiModel = config.aiModel + '-latest';
+      }
+      console.log(chalk.yellow('Note: Add GEMINI_API_KEY to .env for Gemini AI features'));
+    }
   }
 
   const customPort = await askQuestion(rl, chalk.blue('Custom dev server port (leave empty for default): '));

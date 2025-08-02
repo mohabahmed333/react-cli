@@ -1,4 +1,4 @@
-import { generateWithGemini } from '../services/gemini-service';
+import { generateWithAI } from '../services/ai-service';
 import type { CLIConfig } from './config';
 import chalk from 'chalk';
 import { askQuestion } from './prompt';
@@ -58,7 +58,7 @@ export async function     generateComponentWithAI(name: string, config: CLIConfi
     ${options.features ? `- Implement these features: ${options.features}` : ''}
     Output ONLY the component code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generateHookWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -72,7 +72,7 @@ export async function generateHookWithAI(name: string, config: CLIConfig, option
     ${options.features ? `- Implement these features: ${options.features}` : ''}
     Output ONLY the hook code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generateServiceWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -86,7 +86,7 @@ export async function generateServiceWithAI(name: string, config: CLIConfig, opt
     ${options.features ? `- Implement these features: ${options.features}` : ''}
     Output ONLY the service code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generateTypeWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -99,7 +99,7 @@ export async function generateTypeWithAI(name: string, config: CLIConfig, option
     ${options.features ? `- Include these fields/types: ${options.features}` : ''}
     Output ONLY the type definitions:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generateUtilWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -113,7 +113,7 @@ export async function generateUtilWithAI(name: string, config: CLIConfig, option
     ${options.features ? `- Implement these features: ${options.features}` : ''}
     Output ONLY the utility code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generateContextWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -127,7 +127,7 @@ export async function generateContextWithAI(name: string, config: CLIConfig, opt
     ${options.features ? `- Implement these features: ${options.features}` : ''}
     Output ONLY the context code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generateReduxWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -142,7 +142,7 @@ export async function generateReduxWithAI(name: string, config: CLIConfig, optio
     ${options.features ? `- Implement these features: ${options.features}` : ''}
     Output ONLY the Redux slice code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generatePageWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -160,7 +160,7 @@ export async function generatePageWithAI(name: string, config: CLIConfig, option
     ${options.lib ? '- Include constants and utility functions' : ''}
     Output ONLY the page component code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generateLayoutWithAI(name: string, config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -177,7 +177,7 @@ export async function generateLayoutWithAI(name: string, config: CLIConfig, opti
     ${options.navbar ? '- Include navbar component and logic' : ''}
     Output ONLY the layout component code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function generateTestUtilsWithAI(config: CLIConfig, options: GenerateAIOptions): Promise<string | null> {
@@ -192,7 +192,7 @@ export async function generateTestUtilsWithAI(config: CLIConfig, options: Genera
     ${options.features ? `- Implement these features: ${options.features}` : ''}
     Output ONLY the test utilities code:`;
 
-  return generateWithGemini(prompt, config);
+  return generateWithAI(prompt, config);
 }
 
 export async function getAIFeatures(rl: readline.Interface, type: string): Promise<string> {

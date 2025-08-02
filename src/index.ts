@@ -17,6 +17,7 @@ import { registerTemplateCommands } from './commands/template';
 import { CommandRegistrar } from './services/CommandRegistrar';
 import { interactiveMenu } from './services/InteractiveMenu';
 import { registerAddCommand } from './commands/add';
+import { registerMistralCommand } from './commands/mistral';
 
 const program = new Command();
 
@@ -51,6 +52,7 @@ registerDocsCommand(program, rl);
 setupAICommands(program, rl); // Update this to accept rl
 registerTemplateCommands(program, rl);
 registerAddCommand(program, rl); // Add the new add command
+registerMistralCommand(program, rl); // Add Mistral AI command
 
 // Register commands with interactive system
 CommandRegistrar.registerMainCommands(program, rl);
