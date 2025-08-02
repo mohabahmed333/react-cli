@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { setupConfiguration, CLIConfig } from '../utils/config';
-import { createFile, createFolder } from '../utils/file';
-import { getDevServerPort, getStartCommand } from '../utils/buildTools';
+import { setupConfiguration, CLIConfig } from '../utils/config/config';
+import { createFile, createFolder } from '../utils/createGeneratedFile/file';
+import { getDevServerPort, getStartCommand } from '../utils/config/buildTools';
 import { Interface as ReadlineInterface } from 'readline';
 
 interface A11yScanOptions {

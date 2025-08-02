@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { CLIConfig, setupConfiguration } from '../utils/config';
-import { createResource, showResourceCreationExample, ResourceOptions } from '../utils/mistralResourceCreator';
+import { CLIConfig, setupConfiguration } from '../utils/config/config';
+import { createResource, showResourceCreationExample, ResourceOptions } from '../utils/ai/mistralResourceCreator';
 import { Interface as ReadlineInterface } from 'readline';
-import { askQuestion } from '../utils/prompt';
+import { askQuestion } from '../utils/ai/prompt';
 
 export function registerMistralCommand(program: Command, rl: ReadlineInterface) {
   const mistral = program

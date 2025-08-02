@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import readline from 'readline';
-import { setupConfiguration } from '../utils/config';
-import { askQuestion } from '../utils/prompt';
-import { createFile } from '../utils/file';
+import { setupConfiguration } from '../utils/config/config';
+import { askQuestion } from '../utils/ai/prompt';
+import { createFile } from '../utils/createGeneratedFile/file';
 
 export function handleGlobal(program: Command, rl: readline.Interface) {
   program

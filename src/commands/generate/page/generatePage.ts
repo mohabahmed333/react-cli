@@ -4,16 +4,18 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import { Interface as ReadlineInterface } from 'readline';
-import { GenerateOptions } from '../../../utils/generateAIHelper';
+import { GenerateOptions } from '../../../utils/ai/generateAIHelper';
 import { handleInteractiveName } from '../../../utils/shared/handleInteractiveName';
-import { handleTargetDirectory } from '../../../utils/file/handleTargetDirectory';
-import { createGeneratedFile } from '../../../utils/file/createGeneratedFile';
-import { CLIConfig, setupConfiguration } from '../../../utils/config';
-import { askQuestion } from '../../../utils/prompt';
+import { handleTargetDirectory } from '../../../utils/createGeneratedFile/handleTargetDirectory';
+import { createGeneratedFile } from '../../../utils/createGeneratedFile/createGeneratedFile';
+import { CLIConfig, setupConfiguration } from '../../../utils/config/config';
+import { askQuestion } from '../../../utils/ai/prompt';
 import { GeneratorType } from '../../../types/generator-type';
 import { TReadlineInterface } from '../../../types/ReadLineInterface';
-import { generateRouteForPage } from '../../../utils/routeUtils';
+import { generateRouteForPage } from '../../../utils/createRoutes/routeUtils';
 import { isValidPageName } from '../type/typeHelpers';
+import { generatePageWithAI, PageAIGenerationResult } from '../../../services/pageAIService';
+import { shouldOfferAI } from '../../../utils/config/ai/aiConfig';
 
 /**
  * Convert dynamic route pattern to valid component name
@@ -27,6 +29,13 @@ function convertToValidComponentName(pageName: string): string {
     return `Dynamic${pascalParam}`;
   }
   return pageName;
+}
+
+/**
+ * Check if multiple files will be generated (useful for AI coordination)
+ */
+function hasMultipleFiles(options: PageOptions): boolean {
+  return !!(options.hooks || options.utils || options.types || options.css || options.lib || options.test);
 }
 
 export interface PageOptions extends GenerateOptions {
@@ -101,8 +110,45 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
   const useTS = config.typescript;
   const files = [];
 
-  // No need to handle AI generation here - createGeneratedFile will handle it
-  // Just pass the AI features if they were provided
+  // Check if we should use coordinated AI generation
+  const canUseAI = shouldOfferAI(config, 'codeGeneration');
+  const hasMultiple = hasMultipleFiles(options);
+  
+  let aiGeneratedFiles: PageAIGenerationResult | null = null;
+
+  // If AI is available, multiple files are requested, and we have readline interface
+  // try coordinated AI generation for better file integration
+  if (canUseAI && hasMultiple && options.rl) {
+    try {
+      console.log(chalk.cyan('\n🤖 Multiple files detected. Offering coordinated AI generation for better integration...'));
+      
+      const useCoordinatedAI = await askQuestion(
+        options.rl,
+        chalk.blue('Use coordinated AI generation for all files? This ensures better integration between files. (y/n): ')
+      );
+
+      if (useCoordinatedAI.toLowerCase() === 'y') {
+        let features = options.aiFeatures || '';
+        if (!features) {
+          features = await askQuestion(
+            options.rl,
+            chalk.blue(`Describe features for ${name} page (e.g., "user dashboard with charts, real-time data"): `)
+          );
+        }
+
+        aiGeneratedFiles = await generatePageWithAI({
+          name,
+          options,
+          useTS,
+          features,
+          config,
+          rl: options.rl
+        });
+      }
+    } catch (error) {
+      console.log(chalk.yellow('Coordinated AI generation failed, falling back to individual file generation...'));
+    }
+  }
 
   // Main page file
   files.push({
@@ -110,11 +156,11 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
     name: name,
     targetDir: basePath,
     useTS,
-    content: generatePageContent(name, options, useTS),
-    aiOptions: {
-      features: options.aiFeatures || '', // Pass features if provided, empty string if not
+    content: aiGeneratedFiles?.page || generatePageContent(name, options, useTS),
+    aiOptions: !aiGeneratedFiles ? {
+      features: options.aiFeatures || '',
       additionalPrompt: generateAIPrompt(name, options, useTS)
-    }
+    } : undefined
   });
 
   // Additional files based on options
@@ -124,7 +170,11 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
       name: `${name}.module.css`,
       targetDir: basePath,
       useTS: false,
-      content: `.container {\n  padding: 20px;\n}\n`
+      content: aiGeneratedFiles?.css || generateCSSContent(name),
+      aiOptions: !aiGeneratedFiles ? {
+        features: options.aiFeatures || '',
+        additionalPrompt: `Create modern CSS modules for ${name} page with responsive design, dark mode support, and accessibility features. Include styles for main layout, interactive elements, and loading states.`
+      } : undefined
     });
   }
 
@@ -134,7 +184,11 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
       name: `${name}.test`,
       targetDir: basePath,
       useTS,
-      content: generateTestContent(name, useTS)
+      content: aiGeneratedFiles?.test || generateTestContent(name, useTS),
+      aiOptions: !aiGeneratedFiles ? {
+        features: options.aiFeatures || '',
+        additionalPrompt: `Create comprehensive test file for ${name} page with multiple test cases covering functionality, error states, and user interactions.`
+      } : undefined
     });
   }
 
@@ -142,9 +196,13 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
     files.push({
       type: 'hook',
       name: `use${name}`,
-      targetDir: `${config.baseDir}/hooks`,
+      targetDir: `${basePath}/hooks`,
       useTS,
-      content: generateHookContent(name, useTS)
+      content: aiGeneratedFiles?.hooks || generateHookContent(name, useTS),
+      aiOptions: !aiGeneratedFiles ? {
+        features: options.aiFeatures || '',
+        additionalPrompt: `Create a custom hook for ${name} page that manages its state and logic. This hook should be specific to the ${name} page functionality.`
+      } : undefined
     });
   }
 
@@ -152,9 +210,13 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
     files.push({
       type: 'utils',
       name: `${name}Utils`,
-      targetDir: `${config.baseDir}/utils`,
+      targetDir: `${basePath}/utils`,
       useTS,
-      content: generateUtilsContent(name, useTS)
+      content: aiGeneratedFiles?.utils || generateUtilsContent(name, useTS),
+      aiOptions: !aiGeneratedFiles ? {
+        features: options.aiFeatures || '',
+        additionalPrompt: `Create utility functions specific to ${name} page. Include helper functions that would be commonly used within this page.`
+      } : undefined
     });
   }
 
@@ -162,9 +224,13 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
     files.push({
       type: 'types',
       name: `${name}.types`,
-      targetDir: `${config.baseDir}/types`,
+      targetDir: `${basePath}/types`,
       useTS: true,
-      content: generateTypesContent(name)
+      content: aiGeneratedFiles?.types || generateTypesContent(name),
+      aiOptions: !aiGeneratedFiles ? {
+        features: options.aiFeatures || '',
+        additionalPrompt: `Create TypeScript types and interfaces specific to ${name} page. Include props interfaces, state types, and any other types needed for this page.`
+      } : undefined
     });
   }
 
@@ -174,7 +240,11 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
       name: 'constants.ts',
       targetDir: `${basePath}/lib`,
       useTS: true,
-      content: generateLibContent(name, useTS)
+      content: aiGeneratedFiles?.lib || generateLibContent(name, useTS),
+      aiOptions: !aiGeneratedFiles ? {
+        features: options.aiFeatures || '',
+        additionalPrompt: `Create constants and configuration values specific to ${name} page.`
+      } : undefined
     });
   }
 
@@ -193,9 +263,13 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
     files.push({
       type: 'hook',
       name: `use${name}Performance`,
-      targetDir: `${config.baseDir}/hooks`,
+      targetDir: `${basePath}/hooks`,
       useTS,
-      content: generatePerformanceHookContent(name, useTS)
+      content: generatePerformanceHookContent(name, useTS),
+      aiOptions: !aiGeneratedFiles ? {
+        features: options.aiFeatures || '',
+        additionalPrompt: `Create a performance monitoring hook for ${name} page that tracks render times, user interactions, and page-specific metrics.`
+      } : undefined
     });
   }
 
@@ -206,7 +280,11 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
       name: `${name}PerformanceWrapper`,
       targetDir: `${basePath}/components`,
       useTS,
-      content: generatePerformanceWrapperContent(name, useTS)
+      content: generatePerformanceWrapperContent(name, useTS),
+      aiOptions: !aiGeneratedFiles ? {
+        features: options.aiFeatures || '',
+        additionalPrompt: `Create a performance monitoring wrapper component for ${name} page with metrics display and performance tracking.`
+      } : undefined
     });
   }
 
@@ -216,43 +294,104 @@ async function getFilesToGenerate(name: string, options: PageOptions, config: CL
 // Content generation helper functions
 function generatePageContent(name: string, options: PageOptions, useTS: boolean): string {
   const componentName = convertToValidComponentName(name);
-  const perfHookImport = options.perfHook ? `\nimport { use${name}Performance } from '../hooks/use${name}Performance';` : '';
-  const perfWrapperImport = options.perfMonitoring ? `\nimport ${name}PerformanceWrapper from './components/${name}PerformanceWrapper';` : '';
+  
+  // Build imports
+  const imports = ['import React from \'react\';'];
+  
+  if (options.css) {
+    imports.push(`import styles from './${name}.module.css';`);
+  }
+  
+  if (options.hooks) {
+    imports.push(`import { use${name} } from './hooks/use${name}';`);
+  }
+  
+  if (options.utils) {
+    imports.push(`import { ${name.toLowerCase()}Utils } from './utils/${name}Utils';`);
+  }
+  
+  if (options.types && useTS) {
+    imports.push(`import type { ${componentName}Props, ${name}Type } from './types/${name}.types';`);
+  }
+  
+  if (options.lib) {
+    imports.push(`import { ${name.toUpperCase()}_CONSTANT } from './lib/constants';`);
+  }
+  
+  if (options.perfHook) {
+    imports.push(`import { use${name}Performance } from './hooks/use${name}Performance';`);
+  }
+  
+  if (options.perfMonitoring) {
+    imports.push(`import ${name}PerformanceWrapper from './components/${name}PerformanceWrapper';`);
+  }
+  
+  // Build component content
+  const hookUsage = options.hooks ? `\n  const { data, loading, error, refetch } = use${name}();` : '';
   const perfHookUsage = options.perfHook ? `\n  const { startMeasure, endMeasure } = use${name}Performance();` : '';
   
-  const contentDiv = options.css 
-    ? `<div className={styles.container}>
-      <h1>${componentName} Page</h1>
-    </div>`
-    : `<div>
-      <h1>${componentName} Page</h1>
+  // Build JSX content
+  let contentJsx = '';
+  if (options.hooks) {
+    contentJsx = `    {loading && <div className={${options.css ? 'styles.loading' : '"loading"'}}>Loading...</div>}
+    {error && <div className={${options.css ? 'styles.error' : '"error"'}>Error: {error}</div>}
+    {data && (
+      <div className={${options.css ? 'styles.content' : '"content"'}}>
+        <h1 className={${options.css ? 'styles.title' : '"title"'}}>${componentName} Page</h1>
+        <pre>{${options.utils ? `${name.toLowerCase()}Utils.formatData(data)` : 'JSON.stringify(data, null, 2)'}}</pre>
+        <button onClick={refetch}>Refresh Data</button>
+      </div>
+    )}`;
+  } else {
+    contentJsx = `    <div className={${options.css ? 'styles.header' : '"header"'}}>
+      <h1 className={${options.css ? 'styles.title' : '"title"'}}>${componentName} Page</h1>
+    </div>
+    <div className={${options.css ? 'styles.content' : '"content"'}}>
+      <p>Welcome to the ${componentName} page!</p>
     </div>`;
+  }
+  
+  const mainContent = options.css 
+    ? `  return (
+    <div className={styles.container}>
+${contentJsx}
+    </div>
+  );`
+    : `  return (
+    <div>
+${contentJsx}
+    </div>
+  );`;
     
   const wrappedContent = options.perfMonitoring 
-    ? `<${name}PerformanceWrapper showMetrics={process.env.NODE_ENV === 'development'}>
-      ${contentDiv}
-    </${name}PerformanceWrapper>`
-    : contentDiv;
+    ? `  return (
+    <${name}PerformanceWrapper showMetrics={process.env.NODE_ENV === 'development'}>
+      <div${options.css ? ' className={styles.container}' : ''}>
+${contentJsx}
+      </div>
+    </${name}PerformanceWrapper>
+  );`
+    : mainContent;
+  
+  const propsInterface = useTS && options.types 
+    ? `interface ${componentName}Props {}`
+    : `interface ${componentName}Props {}`;
   
   return useTS
-    ? `import React from 'react';${options.css ? `\nimport styles from './${name}.module.css';` : ''}${perfHookImport}${perfWrapperImport}
+    ? `${imports.join('\n')}
 
-interface ${componentName}Props {}
+${propsInterface}
 
-const ${componentName}: React.FC<${componentName}Props> = () => {${perfHookUsage}
-  return (
-    ${wrappedContent}
-  );
+const ${componentName}: React.FC<${componentName}Props> = () => {${hookUsage}${perfHookUsage}
+${wrappedContent}
 };
 
 export default ${componentName};
 `
-    : `import React from 'react';${options.css ? `\nimport styles from './${name}.module.css';` : ''}${perfHookImport}${perfWrapperImport}
+    : `${imports.join('\n')}
 
-const ${componentName} = () => {${perfHookUsage}
-  return (
-    ${wrappedContent}
-  );
+const ${componentName} = () => {${hookUsage}${perfHookUsage}
+${wrappedContent}
 };
 
 export default ${componentName};
@@ -268,24 +407,307 @@ function generateTestContent(name: string, useTS: boolean): string {
 
 function generateHookContent(name: string, useTS: boolean): string {
   return useTS
-    ? `import { useState } from 'react';\n\nexport const use${name} = (): [boolean, () => void] => {\n  const [state, setState] = useState(false);\n  const toggle = () => setState(!state);\n  return [state, toggle];\n};\n`
-    : `import { useState } from 'react';\n\nexport const use${name} = () => {\n  const [state, setState] = useState(false);\n  const toggle = () => setState(!state);\n  return [state, toggle];\n};\n`;
+    ? `import { useState, useEffect, useCallback } from 'react';
+import type { ${name}Type } from '../types/${name}.types';
+
+interface Use${name}Return {
+  data: ${name}Type | null;
+  loading: boolean;
+  error: string | null;
+  refetch: () => void;
+}
+
+export const use${name} = (): Use${name}Return => {
+  const [data, setData] = useState<${name}Type | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // TODO: Replace with actual API call
+      const response = await fetch('/api/${name.toLowerCase()}');
+      if (!response.ok) throw new Error('Failed to fetch data');
+      const result = await response.json();
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const refetch = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, loading, error, refetch };
+};`
+    : `import { useState, useEffect, useCallback } from 'react';
+
+export const use${name} = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // TODO: Replace with actual API call
+      const response = await fetch('/api/${name.toLowerCase()}');
+      if (!response.ok) throw new Error('Failed to fetch data');
+      const result = await response.json();
+      setData(result);
+    } catch (err) {
+      setError(err.message || 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const refetch = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, loading, error, refetch };
+};`;
 }
 
 function generateUtilsContent(name: string, useTS: boolean): string {
   return useTS
-    ? `export const format${name} = (input: string): string => {\n  return input.toUpperCase();\n};\n`
-    : `export const format${name} = (input) => {\n  return input.toUpperCase();\n};\n`;
+    ? `/**
+ * Utility functions for ${name} page
+ */
+
+export const ${name.toLowerCase()}Utils = {
+  /**
+   * Format display data for ${name}
+   */
+  formatData: (data: any): string => {
+    if (!data) return 'No data available';
+    return typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data);
+  },
+
+  /**
+   * Validate ${name} input
+   */
+  validateInput: (input: string): boolean => {
+    return input && input.trim().length > 0;
+  },
+
+  /**
+   * Generate unique ID for ${name}
+   */
+  generateId: (): string => {
+    return \`${name.toLowerCase()}_\${Date.now()}_\${Math.random().toString(36).substr(2, 9)}\`;
+  },
+
+  /**
+   * Parse URL parameters for ${name}
+   */
+  parseUrlParams: (search: string): Record<string, string> => {
+    const params = new URLSearchParams(search);
+    const result: Record<string, string> = {};
+    params.forEach((value, key) => {
+      result[key] = value;
+    });
+    return result;
+  },
+
+  /**
+   * Debounce function for ${name} search
+   */
+  debounce: <T extends (...args: any[]) => void>(func: T, delay: number): T => {
+    let timeoutId: NodeJS.Timeout;
+    return ((...args: any[]) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    }) as T;
+  }
+};`
+    : `/**
+ * Utility functions for ${name} page
+ */
+
+export const ${name.toLowerCase()}Utils = {
+  /**
+   * Format display data for ${name}
+   */
+  formatData: (data) => {
+    if (!data) return 'No data available';
+    return typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data);
+  },
+
+  /**
+   * Validate ${name} input
+   */
+  validateInput: (input) => {
+    return input && input.trim().length > 0;
+  },
+
+  /**
+   * Generate unique ID for ${name}
+   */
+  generateId: () => {
+    return \`${name.toLowerCase()}_\${Date.now()}_\${Math.random().toString(36).substr(2, 9)}\`;
+  },
+
+  /**
+   * Parse URL parameters for ${name}
+   */
+  parseUrlParams: (search) => {
+    const params = new URLSearchParams(search);
+    const result = {};
+    params.forEach((value, key) => {
+      result[key] = value;
+    });
+    return result;
+  },
+
+  /**
+   * Debounce function for ${name} search
+   */
+  debounce: (func, delay) => {
+    let timeoutId;
+    return (...args) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  }
+};`;
 }
 
 function generateTypesContent(name: string): string {
-  return `export interface ${name}Props {\n  // Add props here\n}\n\nexport type ${name}Type = {\n  id: string;\n  name: string;\n};\n`;
+  return `/**
+ * Type definitions for ${name} page
+ */
+
+export interface ${name}Props {
+  className?: string;
+  onUpdate?: (data: ${name}Type) => void;
+  initialData?: ${name}Type;
+}
+
+export interface ${name}Type {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'active' | 'inactive' | 'pending';
+}
+
+export interface ${name}State {
+  data: ${name}Type | null;
+  loading: boolean;
+  error: string | null;
+}
+
+export interface ${name}FormData {
+  name: string;
+  description?: string;
+}
+
+export interface ${name}ApiResponse {
+  data: ${name}Type;
+  message: string;
+  success: boolean;
+}
+
+export interface ${name}ListResponse {
+  data: ${name}Type[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type ${name}Action = 
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_DATA'; payload: ${name}Type }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'RESET' };
+`;
 }
 
 function generateLibContent(name: string, useTS: boolean): string {
   return useTS
     ? `export const ${name.toUpperCase()}_CONSTANT: string = 'value';\n`
     : `export const ${name.toUpperCase()}_CONSTANT = 'value';\n`;
+}
+
+function generateCSSContent(name: string): string {
+  return `.container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--primary-color, #333);
+  margin-bottom: 16px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.error {
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  padding: 16px;
+  color: #c33;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container {
+    padding: 16px;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .title {
+    color: var(--primary-color, #fff);
+  }
+  
+  .error {
+    background: #4a1a1a;
+    border-color: #8a2626;
+    color: #ff6b6b;
+  }
+}
+`;
 }
 
 function generateLayoutContent(useTS: boolean): string {
@@ -296,18 +718,40 @@ function generateLayoutContent(useTS: boolean): string {
 
 function generateAIPrompt(name: string, options: PageOptions, useTS: boolean): string {
   const features = [
-    options.css && 'CSS modules',
-    options.components && 'components folder',
-    options.lib && 'lib utilities',
-    options.hooks && 'custom hooks',
-    options.utils && 'utility functions',
-    options.types && 'TypeScript types',
-    options.layout && 'layout file',
-    options.perfHook && 'performance monitoring hook',
-    options.perfMonitoring && 'performance monitoring wrapper'
+    options.css && 'CSS modules with responsive design',
+    options.components && 'reusable child components',
+    options.lib && 'constants and configuration utilities',
+    options.hooks && 'custom React hooks for state management',
+    options.utils && 'utility functions for data processing',
+    options.types && 'TypeScript type definitions',
+    options.layout && 'layout wrapper component',
+    options.perfHook && 'performance monitoring capabilities',
+    options.perfMonitoring && 'performance metrics display'
   ].filter(Boolean).join(', ');
 
-  return `Create a ${name} page in ${useTS ? 'TypeScript' : 'JavaScript'} with: ${features}`;
+  const additionalContext = [
+    `The page should be a React ${useTS ? 'TypeScript' : 'JavaScript'} functional component`,
+    options.hooks && `Import and use custom hooks from './hooks/use${name}'`,
+    options.utils && `Import utility functions from './utils/${name}Utils'`,
+    options.types && useTS && `Import types from './types/${name}.types'`,
+    options.css && `Use CSS modules with className from './${name}.module.css'`,
+    options.lib && `Import constants from './lib/constants'`,
+    'Follow React best practices and include proper error handling',
+    'Use semantic HTML and accessibility features',
+    'Include JSDoc comments for all functions and interfaces'
+  ].filter(Boolean).join('\n- ');
+
+  return `Create a comprehensive ${name} page component with the following features: ${features}.
+
+Requirements:
+- ${additionalContext}
+- Make the component modular and maintainable
+- Ensure proper separation of concerns between files
+- Include loading states, error handling, and user feedback
+- Follow modern React patterns (hooks, functional components)
+- Optimize for performance and accessibility
+
+Generate ONLY the main page component code. The supporting files (hooks, utils, types, etc.) will be generated separately with their own AI prompts.`;
 }
 
 function generatePerformanceHookContent(name: string, useTS: boolean): string {

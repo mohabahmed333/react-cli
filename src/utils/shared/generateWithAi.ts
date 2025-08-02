@@ -1,8 +1,8 @@
 import chalk from "chalk";
-import { generateWithConfiguredAI } from "../ai/aiConfig";
-import { askQuestion } from "../prompt";
+import { generateWithConfiguredAI } from "../config/ai/aiConfig";
+import { askQuestion } from "../ai/prompt";
 import { TReadlineInterface } from "../../types/ReadLineInterface";
-import { CLIConfig } from "../config";
+import { CLIConfig } from "../config/config";
 import { AIGenerationParams, GeneratorType } from "../../types/generator-type";
  
  

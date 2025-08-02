@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import { generateWithGemini } from '../../services/gemini-service';
-import { createFolder, createFile } from '../../utils/docUtils';
-import type { CLIConfig } from '../../utils/config';
+import { createFolder, createFile } from '../../utils/docs/docUtils';
+import type { CLIConfig } from '../../utils/config/config';
 
 interface DocsConfig {
   outputDir: string;

@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { setupConfiguration } from '../../utils/config';
-import { createGeneratedFile } from '../../utils/file/createGeneratedFile';
+import { setupConfiguration } from '../../utils/config/config';
+import { createGeneratedFile } from '../../utils/createGeneratedFile/createGeneratedFile';
 import { Interface as ReadlineInterface } from 'readline';
 
 interface ServiceWorkerOptions {

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { createFile } from '../../utils/file';
+import { createFile } from '../../utils/createGeneratedFile/file';
 import { Interface as ReadlineInterface } from 'readline';
 
 export function registerGenerateEnv(generate: Command, rl: ReadlineInterface) {

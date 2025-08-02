@@ -1,6 +1,6 @@
 import * as path from 'path';
 import chalk from 'chalk';
-import { createFile } from '../../../utils/file';
+import { createFile } from '../../../utils/createGeneratedFile/file';
 import type { PerformanceConfig } from '../types/performanceTypes';
 
 export async function createPerfHook(

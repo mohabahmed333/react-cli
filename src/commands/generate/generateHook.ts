@@ -3,15 +3,15 @@ import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs';
 import readline from 'readline';
-import { setupConfiguration } from '../../utils/config';
-import { askQuestion } from '../../utils/prompt';
+import { setupConfiguration } from '../../utils/config/config';
+import { askQuestion } from '../../utils/ai/prompt';
 import { Interface as ReadlineInterface } from 'readline';
-import { GenerateOptions } from '../../utils/generateAIHelper';
-import { findFoldersByName } from '../../utils/file/findFolderByName';
+import { GenerateOptions } from '../../utils/ai/generateAIHelper';
+import { findFoldersByName } from '../../utils/createGeneratedFile/findFolderByName';
 import { handleInteractiveName } from '../../utils/shared/handleInteractiveName';
-import { createFileWithContent } from '../../utils/file/createFileWithContent';
-import { handleTargetDirectory } from '../../utils/file/handleTargetDirectory';
-import { createGeneratedFile } from '../../utils/file/createGeneratedFile';
+import { createFileWithContent } from '../../utils/createGeneratedFile/createFileWithContent';
+import { handleTargetDirectory } from '../../utils/createGeneratedFile/handleTargetDirectory';
+import { createGeneratedFile } from '../../utils/createGeneratedFile/createGeneratedFile';
 
 
 

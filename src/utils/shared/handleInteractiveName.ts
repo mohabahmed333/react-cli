@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { askQuestion } from '../prompt';
+import { askQuestion } from '../ai/prompt';
 import { TReadlineInterface } from '../../types/ReadLineInterface';
 import { GeneratorType } from '../../types/generator-type';
 

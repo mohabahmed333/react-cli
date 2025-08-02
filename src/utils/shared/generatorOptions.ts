@@ -1,8 +1,8 @@
 import { Interface as ReadlineInterface } from 'readline';
 import chalk from 'chalk';
-import { askQuestion, askBoolean, askMultiSelect, askChoice, ChoiceOption } from '../prompt';
-import { CLIConfig } from '../config';
-import { shouldOfferAI } from '../ai/aiConfig';
+import { askQuestion, askBoolean, askMultiSelect, askChoice, ChoiceOption } from '../ai/prompt';
+import { CLIConfig } from '../config/config';
+import { shouldOfferAI } from '../config/ai/aiConfig';
 
 export interface GeneratorOptionsConfig {
   supportedFiles?: {

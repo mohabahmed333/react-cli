@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import readline from 'readline';
 import { runPerformanceAudit } from '../features/performance/audit/performanceAudit';
-import { setupConfiguration } from '../utils/config';
+import { setupConfiguration } from '../utils/config/config';
 
 export function registerAuditCommand(program: Command, rl: readline.Interface): void {
   program

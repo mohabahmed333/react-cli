@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import { updateStoreForRtkQueryTS } from './generateRtkQuery/RtkStoreUpdater';
 import { generateAxiosCrudTS } from './generateAxios';
 import { generateReactQueryCrudTS } from './generateReactQuery';
-import { setupConfiguration } from '../../utils/config';
+import { setupConfiguration } from '../../utils/config/config';
 import { generateRtkQueryCrudTS } from './generateRtkQuery/generateRtkQuery';
 import { Interface as ReadlineInterface } from 'readline';
 // import your template generators here:

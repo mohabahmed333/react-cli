@@ -3,8 +3,8 @@ import inquirer from 'inquirer';
 import fs from 'fs-extra';
 import path from 'path';
 import { Interface as ReadlineInterface } from 'readline';
-import { setupConfiguration } from '../utils/config';
-import { detectApiLibrary } from '../utils/libraryDetication';
+import { setupConfiguration } from '../utils/config/config';
+import { detectApiLibrary } from '../utils/config/libraryDetication';
 import { CrudOptions, generateCrudServices } from './crud/crud';
 
 interface OperationOptions {

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import readline from 'readline';
-import { setupConfiguration } from '../utils/config';
+import { setupConfiguration } from '../utils/config/config';
 import fs from 'fs';
 import path from 'path';
 

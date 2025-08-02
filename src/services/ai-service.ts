@@ -1,6 +1,6 @@
 import { generateWithGemini } from './gemini-service';
 import { generateWithMistral } from './mistral-service';
-import type { CLIConfig } from '../utils/config';
+import type { CLIConfig } from '../utils/config/config';
 import chalk from 'chalk';
 
 export type AIProvider = 'gemini' | 'mistral';

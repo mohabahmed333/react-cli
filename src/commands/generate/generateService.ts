@@ -1,12 +1,12 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { setupConfiguration } from '../../utils/config';
+import { setupConfiguration } from '../../utils/config/config';
 import { handleInteractiveName } from '../../utils/shared/handleInteractiveName';
-import { handleTargetDirectory } from '../../utils/file/handleTargetDirectory';
-import { createGeneratedFile } from '../../utils/file/createGeneratedFile';
+import { handleTargetDirectory } from '../../utils/createGeneratedFile/handleTargetDirectory';
+import { createGeneratedFile } from '../../utils/createGeneratedFile/createGeneratedFile';
 import { createServiceAIOptions } from '../../utils/shared/generateWithAiHelper';
-import { GenerateOptions } from '../../utils/generateAIHelper';
+import { GenerateOptions } from '../../utils/ai/generateAIHelper';
  import { Interface as ReadlineInterface } from 'readline';
 import { generateServiceContent } from '../../content';
 

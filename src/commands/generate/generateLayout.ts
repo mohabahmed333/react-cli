@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { setupConfiguration } from '../../utils/config';
-import { askQuestion } from '../../utils/prompt';
+import { setupConfiguration } from '../../utils/config/config';
+import { askQuestion } from '../../utils/ai/prompt';
 import { handleInteractiveName } from '../../utils/shared/handleInteractiveName';
-import { createGeneratedFile } from '../../utils/file/createGeneratedFile';
-import { GenerateOptions } from '../../utils/generateAIHelper';
+import { createGeneratedFile } from '../../utils/createGeneratedFile/createGeneratedFile';
+import { GenerateOptions } from '../../utils/ai/generateAIHelper';
 import { Interface as ReadlineInterface } from 'readline';
 
 interface LayoutOptions extends GenerateOptions {

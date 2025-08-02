@@ -1,6 +1,6 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { CommandInfo, commandRegistry } from './CommandRegistry';
+import { CommandInfo, commandRegistry } from '../utils/commandRegistery/CommandRegistry';
 
 export class InteractiveMenu {
   private currentPath: string[] = [];

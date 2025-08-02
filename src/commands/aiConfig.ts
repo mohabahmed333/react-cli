@@ -3,9 +3,9 @@ import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import { Interface as ReadlineInterface } from 'readline';
-import { CLIConfig, setupConfiguration } from '../utils/config';
-import { askQuestion, askBoolean, askChoice } from '../utils/prompt';
-import { displayAIStatus, validateAIConfig } from '../utils/ai/aiConfig';
+import { CLIConfig, setupConfiguration } from '../utils/config/config';
+import { askQuestion, askBoolean, askChoice } from '../utils/ai/prompt';
+import { displayAIStatus, validateAIConfig } from '../utils/config/ai/aiConfig';
 
 export function registerAIConfigCommands(program: Command, rl: ReadlineInterface) {
   const aiConfig = program

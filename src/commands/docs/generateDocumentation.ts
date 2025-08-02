@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { createFolder, createFile, parseComments, parseTypeScriptProps, getControlType } from '../../utils/docUtils';
-import type { CLIConfig } from '../../utils/config';
+import { createFolder, createFile, parseComments, parseTypeScriptProps, getControlType } from '../../utils/docs/docUtils';
+import type { CLIConfig } from '../../utils/config/config';
 
 interface PropMetadata {
   type: string;

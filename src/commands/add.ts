@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { execSync } from 'child_process';
-import { detectProjectStructure, showLoadingSpinner, ProjectConfig } from '../utils/intelligentConfig';
+import { detectProjectStructure, showLoadingSpinner, ProjectConfig } from '../utils/config/intelligentConfig';
 import { Interface as ReadlineInterface } from 'readline';
 import fs from 'fs';
 

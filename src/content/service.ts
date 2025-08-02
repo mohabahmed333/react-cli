@@ -1,4 +1,4 @@
-import { GenerateOptions } from "../utils/generateAIHelper";
+import { GenerateOptions } from "../utils/ai/generateAIHelper";
 
  
 export interface ServiceOptions extends GenerateOptions {

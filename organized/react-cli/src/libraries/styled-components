@@ -1,0 +1,32 @@
+src/
+│
+├── config/
+│   ├── libraryConfig.ts          # Main configuration file for the library
+│   └── featureToggles.ts         # Individual feature toggle configurations
+│
+├── features/                     # Directory for AI features
+│   ├── codeGeneration/           # Code generation related files
+│   │   ├── index.ts              # Entry point for code generation
+│   │   └── generator.ts          # Code generator logic
+│   │
+│   ├── documentation/            # Documentation generation related files
+│   │   ├── index.ts              # Entry point for documentation
+│   │   └── docGenerator.ts       # Documentation generator logic
+│   │
+│   ├── refactoring/              # Refactoring related files
+│   │   ├── index.ts              # Entry point for refactoring
+│   │   └── refactorer.ts         # Refactoring logic
+│   │
+│   └── testing/                  # Testing related files
+│       ├── index.ts              # Entry point for testing
+│       └── testGenerator.ts      # Test generation logic
+│
+├── commands/                     # CLI command definitions
+│   ├── aiCommands.ts             # AI-related commands
+│   └── generalCommands.ts        # General CLI commands
+│
+├── utils/                        # Utility functions
+│   ├── logger.ts                 # Logging utility
+│   └── helpers.ts                # General helper functions
+│
+└── index.ts                      # Main entry point for the library

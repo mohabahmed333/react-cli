@@ -46,14 +46,6 @@ program
     rl.close();
   });
 
-program
-  .command('init')
-  .description('Initialize project configuration')
-  .action(async () => {
-    await setupConfiguration();
-    rl.close();
-  });
-
 // Performance audit command
 program
   .command('audit <path>')
@@ -459,14 +451,6 @@ function createPage(name, options, config) {
 }
 
 // Config commands
-program
-  .command('init')
-  .description('Initialize project config')
-  .action(async () => {
-    await setupConfiguration();
-    rl.close();
-  });
-
 program
   .command('config')
   .description('Show current config')

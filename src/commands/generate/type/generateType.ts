@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { handleNamedType, handleTypeLegacy } from './typeHelpers';
 import { Interface as ReadlineInterface } from 'readline';
-import { GenerateOptions } from '../../../utils/generateAIHelper';
+import { GenerateOptions } from '../../../utils/ai/generateAIHelper';
 
 export function registerGenerateType(generate: Command, rl: ReadlineInterface) {
   generate

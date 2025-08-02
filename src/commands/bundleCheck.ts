@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { setupConfiguration, CLIConfig } from '../utils/config';
-import { createFile, createFolder } from '../utils/file';
+import { setupConfiguration, CLIConfig } from '../utils/config/config';
+import { createFile, createFolder } from '../utils/createGeneratedFile/file';
 import { Interface as ReadlineInterface } from 'readline';
 
 interface BundleCheckOptions {

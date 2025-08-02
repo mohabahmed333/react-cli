@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createFolder } from '../../../utils/file';
+import { createFolder } from '../../../utils/createGeneratedFile/file';
 import { suggestOptimizations } from '../optimization/suggestions';
 import type { 
   PerformanceAuditOptions, 

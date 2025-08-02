@@ -6,9 +6,9 @@ import {
   generateFromTemplate, 
   listTemplates, 
   templateExists 
-} from '../../utils/template';
-import { askQuestion, askChoice } from '../../utils/prompt';
-import { setupConfiguration } from '../../utils/config';
+} from '../../utils/template/template';
+import { askQuestion, askChoice } from '../../utils/ai/prompt';
+import { setupConfiguration } from '../../utils/config/config';
 import type { TReadlineInterface } from '../../types/ReadLineInterface';
 
 export function registerGenerateTemplate(generate: Command, rl: TReadlineInterface) {

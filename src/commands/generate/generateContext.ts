@@ -1,10 +1,10 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { setupConfiguration } from '../../utils/config';
+import { setupConfiguration } from '../../utils/config/config';
 import { Interface as ReadlineInterface } from 'readline';
-import { GenerateOptions } from '../../utils/generateAIHelper';
+import { GenerateOptions } from '../../utils/ai/generateAIHelper';
 import { handleInteractiveName } from '../../utils/shared/handleInteractiveName';
-import { createGeneratedFile } from '../../utils/file/createGeneratedFile';
+import { createGeneratedFile } from '../../utils/createGeneratedFile/createGeneratedFile';
 
 export function registerGenerateContext(generate: Command, rl: ReadlineInterface) {
   generate

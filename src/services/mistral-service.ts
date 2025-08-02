@@ -1,7 +1,7 @@
 import { Mistral } from '@mistralai/mistralai';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
-import type { CLIConfig } from '../utils/config';
+import type { CLIConfig } from '../utils/config/config';
 
 // Load environment variables
 const result = dotenv.config();

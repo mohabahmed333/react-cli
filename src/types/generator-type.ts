@@ -1,4 +1,4 @@
-import { CLIConfig } from '../utils/config';
+import { CLIConfig } from '../utils/config/config';
 import { Interface as ReadlineInterface } from 'readline';
 
 /**

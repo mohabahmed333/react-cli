@@ -1,10 +1,10 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { setupConfiguration } from '../utils/config';
+import { setupConfiguration } from '../utils/config/config';
 import readline from 'readline';
 import { generateDocumentation } from './docs/generateDocumentation';
 import { generateAIDocumentation } from './docs/generateAIDocs';
-import { promptForDocOptions } from '../utils/docsPrompt';
+import { promptForDocOptions } from '../utils/docs/docsPrompt';
 
 export function registerDocsCommand(program: Command, rl: readline.Interface) {
   program

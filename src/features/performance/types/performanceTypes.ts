@@ -1,4 +1,4 @@
-import type { CLIConfig } from '../../../utils/config';
+import type { CLIConfig } from '../../../utils/config/config';
 
 export interface PerformanceAuditOptions {
   url?: string;

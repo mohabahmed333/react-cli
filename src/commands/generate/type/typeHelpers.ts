@@ -1,17 +1,17 @@
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs';
-import { askQuestion } from '../../../utils/prompt';
-import { CLIConfig, setupConfiguration } from '../../../utils/config';
-import { createGeneratedFile } from '../../../utils/file/createGeneratedFile';
+import { askQuestion } from '../../../utils/ai/prompt';
+import { CLIConfig, setupConfiguration } from '../../../utils/config/config';
+import { createGeneratedFile } from '../../../utils/createGeneratedFile/createGeneratedFile';
 import { 
   shouldUseAI, 
   getAIFeatures
-} from '../../../utils/generateAIHelper';
+} from '../../../utils/ai/generateAIHelper';
 import readline from 'readline';
-import { GenerateOptions } from '../../../utils/generateAIHelper';
+import { GenerateOptions } from '../../../utils/ai/generateAIHelper';
 import { Interface } from 'readline';
-import { findFoldersByName } from '../../../utils/file/findFolderByName';
+import { findFoldersByName } from '../../../utils/createGeneratedFile/findFolderByName';
  
 
 
